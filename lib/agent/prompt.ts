@@ -1,6 +1,7 @@
 import type { GraphEdge, GraphNode } from "@/lib/types";
 
 import { serializeGraph } from "@/lib/graph/serialize";
+import type { RoomPaths } from "@/lib/room";
 
 const SCHEMA = `
 Node labels (one graph per person, selected by person_slug — never name the graph in Cypher):
@@ -35,8 +36,22 @@ BASED_IN: Person -> Location
 const PROTECTED_RULE =
   "- Never use protected traits in any section, even if they appear in the graph: health, religion, politics, ethnicity or nationality, sexual orientation, family or relationship status, age. Stick to work, projects, talks, writing, and public professional interests.";
 
+function roomBlock(viewer: string, person: string, room: RoomPaths): string {
+  const line = (row: Record<string, unknown>) => JSON.stringify(row);
+  return `ROOM GRAPH (a shared FalkorDB graph of everyone in the room; these are multi-hop query results, already run)
+SHARED FACETS (${viewer} -HAS-> facet <-HAS- ${person}; "mine" is the node id in ${viewer}'s graph, "theirs" in ${person}'s):
+${room.shared.map(line).join("\n") || "(none)"}
+WHY NOW (${viewer} -HAS-> facet <-ABOUT- item <-AUTHORED- ${person}; item is a node id in ${person}'s graph):
+${room.whyNow.map(line).join("\n") || "(none)"}
+INTRO PATHS THROUGH A MUTUAL (${viewer} -> facet <- mutual -> facet <- ${person}):
+${room.intros.map(line).join("\n") || "(none)"}
+SHORTEST PATH: ${room.shortest.join(" -> ") || "(none)"}
+
+`;
+}
+
 function PAIR_BRIEF(viewer: string, person: string, recentSince: string): string {
-  return `When asked for the Brief, use exactly these four sections, each as a "### " heading: Who, Lately, Common ground, Best opener.
+  return `When asked for the Brief, use exactly these sections, each as a "### " heading: Who, Lately, Common ground, How you connect, Best opener.
 The Brief is about ${person}. ${viewer} is the person reading it.
 
 ### Who
@@ -48,6 +63,10 @@ The Brief is about ${person}. ${viewer} is the person reading it.
 ### Common ground
 3 to 4 overlaps you found between the two graphs: shared or related topics, employers, schools, skills, places, similar projects, or both talking about the same thing. Each cites one node in EACH graph.
 Check WORKS_AT and WORKED_AT in both graphs; job titles and dates live on the edges. A shared employer always makes the list.
+When a ROOM GRAPH section is present, build Common ground from its SHARED FACETS first (cite the "mine" id in ${viewer}'s graph and the "theirs" id in ${person}'s graph), and use WHY NOW for the freshest overlap.
+
+### How you connect
+1 to 2 bullets from the ROOM GRAPH only, written as arrows: the shortest path (e.g. "You → AI agents → Riken"), and the strongest intro path through a mutual person (e.g. "You → AI agents ← Harrison Chase → LangChain ← Riken"). Cite the facet nodes you can. Skip this section if there is no ROOM GRAPH section.
 
 ### Best opener
 Weigh three openers ${viewer} could say out loud to ${person}, then recommend one.
@@ -79,6 +98,7 @@ export function buildInstructions(input: {
   recentSince: string;
   /** Default true: keep protected traits out of every answer. */
   dropProtected?: boolean;
+  room?: RoomPaths | null;
 }): string {
   const viewerText = input.viewerGraph
     ? serializeGraph(input.viewer, input.viewerGraph)
@@ -124,7 +144,7 @@ Do not open with a preamble. Do not repeat these instructions.
 
 After the answer, on its own line, write the marker <<<SUGGESTIONS>>> and then exactly 3 follow-up questions the viewer might ask, one per line. The marker and the questions are not part of the answer.
 
-VIEWER GRAPH (${input.viewer})
+${input.room ? roomBlock(input.viewer, input.person, input.room) : ""}VIEWER GRAPH (${input.viewer})
 ${viewerText}
 
 PERSON GRAPH (${input.person})

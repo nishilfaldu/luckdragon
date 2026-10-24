@@ -10,6 +10,7 @@ import { SOURCE_ADAPTERS } from "@/lib/ingest/sources";
 import type { SourceContext } from "@/lib/ingest/sources/types";
 import { loadGraphModules, persistGraph } from "@/lib/ingest/store";
 import { getPerson } from "@/lib/people";
+import { updateRoomPerson } from "@/lib/room";
 import type { IngestEvent, PersonRow } from "@/lib/types";
 
 const SOURCE_CONCURRENCY = 8;
@@ -123,6 +124,12 @@ export async function runIngest(
     emit("graph", "writing", { count: merged.nodes.length });
     await persistGraph(slug, merged.nodes, merged.edges);
     emit("graph", "done", { count: merged.nodes.length, message: `${merged.edges.length} edges` });
+    try {
+      await updateRoomPerson(slug);
+      emit("room", "done", { message: "room graph updated" });
+    } catch (error) {
+      emit("room", "error", { message: messageOf(error) });
+    }
     emit("all", "done", { count: merged.nodes.length });
   } catch (error) {
     emit("all", "error", { message: messageOf(error) });

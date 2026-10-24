@@ -4,6 +4,7 @@ import { graphExists, GraphNotFoundError, getGraph, type PersonGraph } from "@/l
 import { assertPersonSlug } from "@/lib/graph/ids";
 import { openaiModel } from "@/lib/models";
 
+import { roomExists, roomPaths, type RoomPaths } from "@/lib/room";
 import { buildInstructions } from "./prompt";
 import { createAgentTools, type AgentContext, type ToolTrace } from "./tools";
 
@@ -67,6 +68,29 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<ChatEven
     return;
   }
 
+  // Multi-hop answers from the shared room graph: shared facets, why now, intro paths, shortest path.
+  let room: RoomPaths | null = null;
+  if (viewer !== person) {
+    try {
+      if (await roomExists()) room = await roomPaths(viewer, person);
+    } catch {
+      room = null;
+    }
+  }
+  if (room) {
+    for (const [index, trace] of room.traces.entries()) {
+      yield {
+        type: "tool",
+        id: `room-${index}`,
+        name: `room.${trace.name}`,
+        input: { viewer, person },
+        cypher: trace.cypher,
+        rowCount: trace.rowCount,
+        ms: trace.ms,
+      };
+    }
+  }
+
   const today = new Date();
   const recent = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
   const agent = new Agent<AgentContext>({
@@ -80,6 +104,7 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<ChatEven
       today: today.toISOString().slice(0, 10),
       recentSince: recent.toISOString().slice(0, 10),
       dropProtected: request.dropProtected,
+      room,
     }),
     tools: createAgentTools(),
     modelSettings: request.mode === "brief" ? { toolChoice: "none" } : { toolChoice: "auto" },
