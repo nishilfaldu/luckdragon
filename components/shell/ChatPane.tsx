@@ -109,7 +109,7 @@ export function ChatPane({
             {graphs[person.slug]?.status === "error" ? "This graph isn't ready yet." : "Waiting for the graph…"}
           </p>
         ) : null}
-        {viewer && !thread && personReady && viewerReady ? <p className="pane-copy">Writing the brief…</p> : null}
+        {viewer && !thread && personReady && viewerReady ? <BriefSkeleton label="Writing the brief…" /> : null}
         <div className="thread">
           {messages.map((message) => {
             if (message.role === "user") {
@@ -152,7 +152,7 @@ export function ChatPane({
                     }}
                   />
                 ) : null}
-                {waiting ? <p className="pane-copy">{brief ? "Writing the brief…" : "Writing…"}</p> : null}
+                {waiting ? <BriefSkeleton label={brief ? "Writing the brief…" : "Writing…"} /> : null}
                 {message.tools.length > 0 ? (
                   <details className="how">
                     <summary>How I know this</summary>
@@ -207,6 +207,17 @@ export function ChatPane({
         </div>
       </form>
     </section>
+  );
+}
+
+function BriefSkeleton({ label }: { label: string }) {
+  return (
+    <div className="brief-skel">
+      <p className="sr-only">{label}</p>
+      <span className="skel skel-line" />
+      <span className="skel skel-line" />
+      <span className="skel skel-line short" />
+    </div>
   );
 }
 

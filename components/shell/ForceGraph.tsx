@@ -178,8 +178,8 @@ export function ForceGraph({
           nodeCanvasObject={paint}
           nodeCanvasObjectMode={() => "after"}
           nodePointerAreaPaint={paintPointer}
-          linkColor={linkColor}
-          linkWidth={1}
+          linkColor={(link: object) => linkPaint(link)}
+          linkWidth={(link: object) => linkStroke(link)}
           autoPauseRedraw={false}
           minZoom={0.08}
           maxZoom={8}
@@ -227,8 +227,28 @@ function asGraphNode(node: { id?: string | number; type?: NodeType; label?: stri
   };
 }
 
-function linkColor(): string {
-  return cssVar("--faint", "#a6a6a6");
+function linkKind(link: object): string {
+  return "type" in link && typeof link.type === "string" ? link.type : "";
+}
+
+function linkPaint(link: object): string {
+  const kind = linkKind(link);
+  const topic = kind === "ABOUT" || kind === "INTERESTED_IN";
+  return hexAlpha(cssVar(topic ? "--faint" : "--muted", "#8a8a8a"), topic ? 0.35 : 0.7);
+}
+
+function linkStroke(link: object): number {
+  const kind = linkKind(link);
+  return kind === "ABOUT" || kind === "INTERESTED_IN" ? 0.45 : 1.15;
+}
+
+function hexAlpha(hex: string, alpha: number): string {
+  const value = hex.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+  const red = Number.parseInt(value.slice(1, 3), 16);
+  const green = Number.parseInt(value.slice(3, 5), 16);
+  const blue = Number.parseInt(value.slice(5, 7), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function toGraphData(graph: GraphPayload): { nodes: SimNode[]; links: SimLink[] } {
@@ -400,7 +420,8 @@ function paintNode(
   const hot = view.highlight.includes(node.id);
   const focused = view.focusId === node.id;
   const hovered = view.hoverId === node.id;
-  const radius = (root ? 9 : 4.5) + (hovered ? 1.2 : 0);
+  const emphasized = hot || focused || hovered;
+  const radius = root ? 11 : emphasized ? 7 : node.type === "Topic" ? 2.5 : 5.4;
   const color = colorFor(node.type);
   const { x, y } = node;
 

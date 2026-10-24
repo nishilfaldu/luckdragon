@@ -36,7 +36,10 @@ export function PeoplePane({
   const [query, setQuery] = useState("");
 
   const viewer = people?.find((person) => person.slug === viewerSlug) ?? null;
-  const rest = (people ?? []).filter((person) => person.slug !== viewerSlug && matches(person, query));
+  const rest = (people ?? [])
+    .filter((person) => person.slug !== viewerSlug && matches(person, query))
+    .slice()
+    .sort(comparePeople);
   const viewerMatches = viewer ? matches(viewer, query) : false;
   const nothingMatches = Boolean(people && query.trim() && !viewerMatches && rest.length === 0);
 
@@ -44,7 +47,12 @@ export function PeoplePane({
     <section className="pane pane-people" aria-label="People" data-pane="people">
       <div className="people-scroll">
         <p className="eyebrow">People</p>
-        {!people ? <p className="pane-copy">Loading people…</p> : null}
+        {!people ? (
+          <>
+            <p className="sr-only">Loading people…</p>
+            <PeopleSkeleton />
+          </>
+        ) : null}
         {people ? (
           <input
             className="search"
@@ -114,35 +122,47 @@ function PersonRow({
 }) {
   const canIngest = person.status === "none" && !run?.running;
   const sources = sourceLabels(person);
+  const shownSources = sources.slice(0, 4);
+  const hiddenSources = sources.length - shownSources.length;
+  const ingesting = person.status === "ingesting" || Boolean(run?.running);
   const row = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (selected) row.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
   return (
-    <div ref={row} className={selected ? "person selected" : "person"}>
+    <div ref={row} className={personClass(selected, ingesting)}>
       <div className={canIngest ? "person-main with-ingest" : "person-main"}>
         <button
           type="button"
           className="person-hit"
           aria-current={selected ? "true" : undefined}
-          aria-label={`${person.name}, ${statusTitle(person.status)}`}
+          aria-label={personLabel(person)}
           onClick={() => onSelect(person.slug)}
         >
           <Avatar name={person.name} url={person.avatar_url} />
           <span className="meta">
             <span className="topline">
-              <span className={`status-dot ${person.status}`} title={statusTitle(person.status)} aria-hidden="true" />
+              <span className={`status-dot ${ingesting ? "ingesting" : person.status}`} title={statusTitle(person.status)} aria-hidden="true" />
               <span className="name">{person.name}</span>
               <RoleTag role={person.role} />
             </span>
-            {person.headline ? <span className="headline">{person.headline}</span> : null}
-            {sources.length > 0 ? (
+            {person.headline || person.status === "ready" || person.nodeCount > 0 || ingesting ? (
+              <span className="subline">
+                {person.headline ? <span className="headline">{person.headline}</span> : <span className="headline" />}
+                {ingesting ? <span className="live">Ingesting</span> : null}
+                {person.status === "ready" || person.nodeCount > 0 ? (
+                  <span className="count">{person.nodeCount} nodes</span>
+                ) : null}
+              </span>
+            ) : null}
+            {shownSources.length > 0 ? (
               <span className="sources">
-                {sources.map((source) => (
+                {shownSources.map((source) => (
                   <span className="chip" key={source}>
                     {source}
                   </span>
                 ))}
+                {hiddenSources > 0 ? <span className="chip">+{hiddenSources}</span> : null}
               </span>
             ) : null}
           </span>
@@ -262,6 +282,45 @@ function sourceState(row: SourceRow): string {
   if (row.status === "error") return row.message || "Error";
   if (typeof row.count === "number") return row.count === 1 ? "1 item" : `${row.count} items`;
   return "Done";
+}
+
+function PeopleSkeleton() {
+  return (
+    <div className="skel-list" aria-hidden="true">
+      {["a", "b", "c", "d", "e", "f", "g", "h"].map((key) => (
+        <div className="skel-row" key={key}>
+          <span className="skel skel-avatar" />
+          <span className="skel-copy">
+            <span className="skel skel-line" />
+            <span className="skel skel-line short" />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function personClass(selected: boolean, ingesting: boolean): string {
+  const names = ["person"];
+  if (selected) names.push("selected");
+  if (ingesting) names.push("ingesting");
+  return names.join(" ");
+}
+
+function personLabel(person: PersonListItem): string {
+  const bits = [person.name, statusTitle(person.status)];
+  if (person.nodeCount > 0) bits.push(`${person.nodeCount} nodes`);
+  return bits.join(", ");
+}
+
+function comparePeople(a: PersonListItem, b: PersonListItem): number {
+  return statusRank(a.status) - statusRank(b.status) || a.name.localeCompare(b.name);
+}
+
+function statusRank(status: PersonListItem["status"]): number {
+  if (status === "ready") return 0;
+  if (status === "ingesting") return 1;
+  return 2;
 }
 
 function statusTitle(status: PersonListItem["status"]): string {

@@ -135,7 +135,8 @@ function GraphColumn({
       <p className="graph-label">{title}</p>
       {!state || state.status === "loading" ? (
         <div className="center-note">
-          <p className="pane-copy">Loading the graph…</p>
+          <p className="sr-only">Loading the graph…</p>
+          <GraphSkeleton />
         </div>
       ) : null}
       {state?.status === "error" ? (
@@ -169,6 +170,17 @@ function GraphColumn({
       {hovered && hovered.id !== focused?.id ? (
         <NodeCard node={hovered} style={placeCard(pointer)} />
       ) : null}
+    </div>
+  );
+}
+
+function GraphSkeleton() {
+  return (
+    <div className="graph-skel" aria-hidden="true">
+      <span className="skel skel-node lg" />
+      <span className="skel skel-node" />
+      <span className="skel skel-node sm" />
+      <span className="skel skel-node" />
     </div>
   );
 }
