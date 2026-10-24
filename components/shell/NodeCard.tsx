@@ -11,6 +11,11 @@ function urlValue(value: string) {
   );
 }
 
+/** Long prose (descriptions, post text) and URLs read better stacked under their label. */
+function isLong(value: string): boolean {
+  return value.length > 40 || /^https?:\/\//i.test(value);
+}
+
 export function NodeCard({
   node,
   pinned,
@@ -46,7 +51,7 @@ export function NodeCard({
           </div>
         ) : null}
         {props.map((row) => (
-          <div key={row.key}>
+          <div key={row.key} className={isLong(row.value) ? "long" : undefined}>
             <dt>{row.key}</dt>
             <dd>{urlValue(row.value)}</dd>
           </div>

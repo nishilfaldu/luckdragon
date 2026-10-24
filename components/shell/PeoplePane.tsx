@@ -122,7 +122,7 @@ function PersonRow({
 }) {
   const canIngest = person.status === "none" && !run?.running;
   const sources = sourceLabels(person);
-  const shownSources = sources.slice(0, 4);
+  const shownSources = sources.slice(0, 3);
   const hiddenSources = sources.length - shownSources.length;
   const ingesting = person.status === "ingesting" || Boolean(run?.running);
   const row = useRef<HTMLDivElement>(null);
@@ -145,16 +145,12 @@ function PersonRow({
               <span className={`status-dot ${ingesting ? "ingesting" : person.status}`} title={statusTitle(person.status)} aria-hidden="true" />
               <span className="name">{person.name}</span>
               <RoleTag role={person.role} />
+              {ingesting ? <span className="live">Ingesting</span> : null}
+              {person.status === "ready" || person.nodeCount > 0 ? (
+                <span className="count">{person.nodeCount} nodes</span>
+              ) : null}
             </span>
-            {person.headline || person.status === "ready" || person.nodeCount > 0 || ingesting ? (
-              <span className="subline">
-                {person.headline ? <span className="headline">{person.headline}</span> : <span className="headline" />}
-                {ingesting ? <span className="live">Ingesting</span> : null}
-                {person.status === "ready" || person.nodeCount > 0 ? (
-                  <span className="count">{person.nodeCount} nodes</span>
-                ) : null}
-              </span>
-            ) : null}
+            {person.headline ? <span className="headline">{person.headline}</span> : null}
             {shownSources.length > 0 ? (
               <span className="sources">
                 {shownSources.map((source) => (

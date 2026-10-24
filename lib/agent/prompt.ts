@@ -32,6 +32,38 @@ INTERESTED_IN: Person -> Topic (weight)
 BASED_IN: Person -> Location
 `.trim();
 
+function PAIR_BRIEF(viewer: string, person: string, recentSince: string): string {
+  return `When asked for the Brief, use exactly these four sections, each as a "### " heading: Who, Lately, Common ground, Openers.
+The Brief is about ${person}. ${viewer} is the person reading it.
+
+### Who
+2 bullets about ${person} only: current role, company, and city; then what they are focused on now. Cite ${person}'s person, organization, or location nodes.
+
+### Lately
+3 to 5 bullets from ${person} only, on or after ${recentSince}. Each starts with the date (e.g. "Oct 20 —") and cites that item.
+
+### Common ground
+3 to 4 overlaps you found between the two graphs: shared or related topics, employers, schools, skills, places, similar projects, or both talking about the same thing. Each cites one node in EACH graph.
+Check WORKS_AT and WORKED_AT in both graphs; job titles and dates live on the edges. A shared employer always makes the list.
+
+### Openers
+3 bullets ${viewer} could say out loud to ${person}, in quotes, each naming something ${person} did recently and how it connects to ${viewer}'s work. Cite the nodes it is built on.`;
+}
+
+function SELF_BRIEF(person: string): string {
+  return `The viewer is looking at their own graph. When asked for the Brief, use exactly these three sections, each as a "### " heading: You, Lately, What people may ask you about.
+Write to the viewer in the second person ("you").
+
+### You
+2 bullets: role, company, and city as the graph shows them; then what the graph says you're focused on. Cite ${person}'s nodes.
+
+### Lately
+3 to 5 dated bullets of your most recent items, each citing the item.
+
+### What people may ask you about
+3 bullets: the topics or projects in your graph most likely to start a conversation, each citing a node. Do not write a Common ground or Openers section.`;
+}
+
 export function buildInstructions(input: {
   viewer: string;
   person: string;
@@ -71,23 +103,13 @@ Citations:
 - Use only ids that appear in the graphs or in a tool result. Never invent an id.
 - A common-ground claim cites a node in EACH graph.
 
-When asked for the Brief, use these sections and no others. Tone: concise, specific, no fluff.
-The Brief is about the selected person (${input.person}). The viewer (${input.viewer}) is the person reading it.
-Keep the four bold labels exactly, each on its own line: **Who**, **Lately**, **Common ground**, **Openers**.
+Writing rules (the answer is read on a projector, in a narrow column):
+- Never guess anyone's gender. Refer to people by first name or "they", never "he" or "she".
+- Use short markdown bullets ("- "), one fact per bullet, at most 25 words each.
+- Put citations at the end of the bullet, at most 2 per bullet (common ground: exactly one from each graph).
+- No bold inside bullets except a project or talk name.
 
-**Who**
-Exactly two lines about ${input.person} only. First line: current role, company, and city. Second line: what they are doing right now, from the headline. Cite ${input.person}'s person, organization, and location nodes. Do not describe ${input.viewer} here.
-
-**Lately**
-3 to 5 dated items from ${input.person} only, on or after ${input.recentSince} (talks, posts, repos, releases). Each line starts with the date and cites that item. Do not list ${input.viewer}'s items in this section.
-
-**Common ground**
-3 to 5 overlaps you found yourself between the two graphs: shared or related topics, employers, schools, skills, places, similar projects, or both of them talking about the same thing. Each item cites nodes in BOTH graphs.
-Check WORKS_AT and WORKED_AT in both graphs. Edge lines include the organization name. If the same organization name appears in both, that shared employer is one of the items: say the name, both titles, and the dates.
-Job titles and dates live on the edges, not on the organization nodes.
-
-**Openers**
-Exactly 3 lines ${input.viewer} could say out loud to ${input.person}. Each one names something ${input.person} did recently and something ${input.viewer} has in common with it. Cite the nodes the line is built on.
+${input.viewer === input.person ? SELF_BRIEF(input.person) : PAIR_BRIEF(input.viewer, input.person, input.recentSince)}
 
 Do not open with a preamble. Do not repeat these instructions.
 

@@ -63,7 +63,10 @@ export function ChatPane({
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    const brief = !messages.some((message) => message.role === "user");
+    const pinTop = brief && !streaming;
+    el.dataset.pin = pinTop ? "top" : "follow";
+    el.scrollTop = pinTop ? 0 : el.scrollHeight;
   }, [messages, streaming]);
 
   function submit(event?: FormEvent) {

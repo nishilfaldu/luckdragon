@@ -27,6 +27,7 @@ import { sampleGraph, sampleThread, wantsCard, wantsSample } from "./sample";
 
 const briefStarted = new Set<string>();
 const briefLock = new Set<string>();
+const BRIEF_DELAY_MS = 450;
 
 export function AppShell() {
   const [people, setPeople] = useState<PersonListItem[] | null>(null);
@@ -48,6 +49,7 @@ export function AppShell() {
   const selectedRef = useRef(selectedSlug);
   const graphReq = useRef<Record<string, number>>({});
   const activeChat = useRef<AbortController | null>(null);
+  const chatSeq = useRef(0);
 
   useEffect(() => {
     threadsRef.current = threads;
@@ -59,7 +61,7 @@ export function AppShell() {
     try {
       const list = await fetchPeople();
       fromApi.current = true;
-      setPeople(withFixtures(list));
+      setPeople((prev) => mergePeople(list, prev));
       setPeopleNote(null);
     } catch {
       if (fromApi.current) {
@@ -105,7 +107,13 @@ export function AppShell() {
     const timer = window.setTimeout(() => {
       void loadPeople();
     }, 0);
-    return () => window.clearTimeout(timer);
+    const poll = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadPeople();
+    }, 15000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(poll);
+    };
   }, [loadPeople]);
 
   useEffect(() => {
@@ -166,8 +174,43 @@ export function AppShell() {
 
   const runChatRef = useRef<(args: { viewer: string; person: string; mode?: "brief"; text?: string }) => void>(() => {});
 
+  function settleAborted(key: string, kind: "brief" | "ask", assistantId: string) {
+    setThreads((prev) => {
+      const thread = prev[key];
+      if (!thread || !thread.messages.some((message) => message.id === assistantId)) return prev;
+      if (kind === "brief" && !thread.messages.some((message) => message.role === "user")) {
+        briefLock.delete(key);
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }
+      return { ...prev, [key]: { ...thread, streaming: false, messages: dropEmptyTail(thread.messages) } };
+    });
+  }
+
+  function abortChat() {
+    const controller = activeChat.current;
+    if (!controller) return;
+    activeChat.current = null;
+    controller.abort();
+  }
+
+  function selectPerson(slug: string) {
+    if (slug === selectedRef.current) return;
+    abortChat();
+    setSelectedSlug(slug);
+  }
+
+  function changeViewer(slug: string) {
+    if (slug === viewerRef.current) return;
+    abortChat();
+    setViewerSlug(slug);
+  }
+
   async function runChat(args: { viewer: string; person: string; mode?: "brief"; text?: string }) {
     const key = chatKey(args.viewer, args.person);
+    const kind = args.mode === "brief" ? "brief" : "ask";
+    const id = ++chatSeq.current;
     const controller = new AbortController();
     activeChat.current?.abort();
     activeChat.current = controller;
@@ -204,15 +247,11 @@ export function AppShell() {
       if (!current()) return;
       finishThread(key, assistantId);
     } catch (err) {
-      if (!current()) return;
       if (isAbort(err)) {
-        setThreads((prev) => {
-          const thread = prev[key];
-          if (!thread) return prev;
-          return { ...prev, [key]: { ...thread, streaming: false } };
-        });
+        settleAborted(key, kind, assistantId);
         return;
       }
+      if (!current() || chatSeq.current !== id) return;
       const message = err instanceof ApiError ? err.message : "That didn't work.";
       setThreads((prev) => {
         const thread = prev[key];
@@ -280,12 +319,15 @@ export function AppShell() {
     if (graphs[viewerSlug]?.status !== "ready" || graphs[selectedSlug]?.status !== "ready") return;
     const key = chatKey(viewerSlug, selectedSlug);
     const existing = threadsRef.current[key];
-    if (existing?.streaming) return;
-    if (existing?.messages.some((message) => message.role === "user")) return;
-    if (existing && hasRealAnswer(existing)) return;
-    if (briefLock.has(key) && !threadMissesGraph(existing)) return;
-    briefLock.add(key);
-    runChatRef.current({ viewer: viewerSlug, person: selectedSlug, mode: "brief" });
+    if (skipBrief(key, existing)) return;
+    const timer = window.setTimeout(() => {
+      if (viewerRef.current !== viewerSlug || selectedRef.current !== selectedSlug) return;
+      const latest = threadsRef.current[key];
+      if (skipBrief(key, latest)) return;
+      briefLock.add(key);
+      runChatRef.current({ viewer: viewerSlug, person: selectedSlug, mode: "brief" });
+    }, BRIEF_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [viewerSlug, selectedSlug, graphs, ingest]);
 
   useEffect(() => {
@@ -407,7 +449,7 @@ export function AppShell() {
 
   return (
     <div className="shell" data-ready={people ? "true" : "false"}>
-      <Header people={presented} viewerSlug={viewerSlug} onViewer={setViewerSlug} />
+      <Header people={presented} viewerSlug={viewerSlug} onViewer={changeViewer} />
       <div className="panes">
         <PeoplePane
           people={presented}
@@ -415,7 +457,7 @@ export function AppShell() {
           viewerSlug={viewerSlug}
           selectedSlug={selectedSlug}
           ingest={ingest}
-          onSelect={setSelectedSlug}
+          onSelect={selectPerson}
           onIngest={(slug) => void startIngest(slug)}
           onAdd={addPerson}
           onRetry={() => void loadPeople()}
@@ -456,6 +498,22 @@ export function AppShell() {
       </div>
     </div>
   );
+}
+
+function skipBrief(key: string, thread: ChatThread | undefined): boolean {
+  if (thread?.streaming) return true;
+  if (thread?.messages.some((message) => message.role === "user")) return true;
+  if (thread && hasRealAnswer(thread)) return true;
+  return briefLock.has(key) && !threadMissesGraph(thread);
+}
+
+function mergePeople(list: PersonListItem[], prev: PersonListItem[] | null): PersonListItem[] {
+  if (!prev) return list;
+  return list.map((person) => {
+    const local = prev.find((item) => item.slug === person.slug);
+    if (local?.status === "ingesting" && person.status === "none") return { ...person, status: "ingesting" };
+    return person;
+  });
 }
 
 function threadMissesGraph(thread: ChatThread | undefined): boolean {
@@ -506,12 +564,6 @@ function upsertTool(tools: ToolCall[], event: Extract<ChatStreamEvent, { type: "
   const next = tools.slice();
   next[index] = { ...next[index], ...tool };
   return next;
-}
-
-function withFixtures(list: PersonListItem[]): PersonListItem[] {
-  const slugs = new Set(list.map((person) => person.slug));
-  const extra = FIXTURE_PEOPLE.filter((person) => !slugs.has(person.slug));
-  return extra.length > 0 ? [...list, ...extra] : list;
 }
 
 function addFixture(

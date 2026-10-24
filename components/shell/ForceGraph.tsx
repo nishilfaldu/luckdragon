@@ -108,12 +108,16 @@ export function ForceGraph({
 
   useEffect(() => {
     if (size.width < 80 || size.height < 80) return;
-    const timer = window.setTimeout(() => {
-      if (engineOn.current) return;
-      fit(0);
-    }, 50);
+    // Refit on every pane resize, even while the simulation is still settling.
+    const timer = window.setTimeout(() => fit(0), 50);
     return () => window.clearTimeout(timer);
   }, [size.width, size.height, fit]);
+
+  useEffect(() => {
+    // onEngineStop can fire before the canvas has its final size, so refit a few times as a new graph settles.
+    const timers = [300, 900, 1800, 3200].map((ms) => window.setTimeout(() => fit(250), ms));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [signature, fit]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -234,12 +238,12 @@ function linkKind(link: object): string {
 function linkPaint(link: object): string {
   const kind = linkKind(link);
   const topic = kind === "ABOUT" || kind === "INTERESTED_IN";
-  return hexAlpha(cssVar(topic ? "--faint" : "--muted", "#8a8a8a"), topic ? 0.35 : 0.7);
+  return hexAlpha(cssVar(topic ? "--faint" : "--muted", "#8a8a8a"), topic ? 0.16 : 0.75);
 }
 
 function linkStroke(link: object): number {
   const kind = linkKind(link);
-  return kind === "ABOUT" || kind === "INTERESTED_IN" ? 0.45 : 1.15;
+  return kind === "ABOUT" || kind === "INTERESTED_IN" ? 0.3 : 1.25;
 }
 
 function hexAlpha(hex: string, alpha: number): string {
@@ -464,17 +468,19 @@ function drawLabels(
 ): void {
   const ranked = nodes
     .filter((node) => typeof node.x === "number" && typeof node.y === "number")
-    .sort((a, b) => labelRank(a, view) - labelRank(b, view) || a.id.localeCompare(b.id));
+    .sort((a, b) => labelRank(a, view) - labelRank(b, view) || followers(b) - followers(a) || a.label.length - b.label.length || a.id.localeCompare(b.id));
   const placed: LabelBox[] = [];
-  const fontSize = 12 / globalScale;
+  let budget = LABEL_BUDGET;
+  const fontSize = 13.5 / globalScale;
   ctx.save();
   ctx.font = `500 ${fontSize}px ${fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   for (const node of ranked) {
     const rank = labelRank(node, view);
-    const forced = rank <= 1;
-    if (!forced && !showLabel(node, view, globalScale, rank)) continue;
+    const forced = rank <= 2;
+    if (!forced && (!showLabel(node, globalScale, rank) || budget <= 0)) continue;
+    if (!forced) budget -= 1;
     const text = shortLabel(node.label, globalScale);
     const width = ctx.measureText(text).width;
     const height = fontSize * 1.25;
@@ -512,7 +518,7 @@ function drawLabels(
       };
     }
     placed.push(box);
-    ctx.lineWidth = 3 / globalScale;
+    ctx.lineWidth = 4 / globalScale;
     ctx.strokeStyle = cssVar("--bg", "#ffffff");
     ctx.strokeText(text, chosen.x, chosen.y);
     ctx.fillStyle = cssVar("--fg", "#1f1f1f");
@@ -521,6 +527,8 @@ function drawLabels(
   ctx.restore();
 }
 
+const LABEL_BUDGET = 8;
+
 function labelRank(
   node: SimNode,
   view: { highlight: string[]; focusId: string | null; hoverId: string | null; rootId: string },
@@ -528,20 +536,26 @@ function labelRank(
   if (node.id === view.hoverId || node.id === view.focusId) return 0;
   if (view.highlight.includes(node.id)) return 1;
   if (node.id === view.rootId) return 2;
-  if (node.type === "Organization" || node.type === "Account" || node.type === "Location") return 3;
-  if (node.type === "Topic" || node.type === "Skill") return 4;
-  return 5;
+  if (node.type === "Organization") return 3;
+  if (node.type === "Account") return 4;
+  if (node.type === "Location") return 5;
+  if (node.type === "Skill") return 6;
+  if (node.type === "Topic") return 9;
+  return 7;
 }
 
-function showLabel(
-  node: SimNode,
-  view: { rootId: string },
-  globalScale: number,
-  rank: number,
-): boolean {
-  if (node.id === view.rootId || rank <= 3) return true;
-  if (rank === 4) return globalScale >= 1.6;
-  return globalScale >= 2.4;
+function showLabel(node: SimNode, globalScale: number, rank: number): boolean {
+  if (rank <= 2) return true;
+  if (node.type === "Topic") return false;
+  if (rank <= 5) return true;
+  if (rank === 6) return globalScale >= 1.8;
+  return globalScale >= 2.6;
+}
+
+function followers(node: SimNode): number {
+  const value = node.props.followers;
+  const count = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(count) ? count : 0;
 }
 
 function overlaps(a: LabelBox, b: LabelBox): boolean {
