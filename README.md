@@ -24,7 +24,7 @@ You walk into a room of strangers with name tags. What they have shipped, talked
 - **How I know this:** a one-line trace under each answer opens the exact graph queries: what each looked for, the hop pattern, rows, time, and the Cypher.
 - **Full graphs:** both people's graphs side by side, with a card for every fact (source URL, date, confidence, how the account was matched).
 - **Data sources:** when each graph was fetched, which sources succeeded or failed, and which Bright Data product produced which facts.
-- **Protected traits:** on by default, graphs, matches, and answers leave out health, religion, politics, ethnicity, orientation, family, and age.
+- **Sensitive topics hidden:** a header switch, on by default (its **i** explains it); graphs, matches, and answers leave out health, religion, politics, ethnicity, orientation, family, and age.
 
 **Under the hood**
 - **Live web data:** Bright Data Web Scraper API (LinkedIn, X, YouTube, GitHub, Instagram, Threads, Bluesky, Reddit, Crunchbase, npm/PyPI), SERP API, and Web Unlocker; each source fails on its own with a retry, and the rest are kept.
