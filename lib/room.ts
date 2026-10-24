@@ -239,9 +239,62 @@ export async function roomPaths(viewer: string, person: string, dropProtected = 
     const rows = await traced("two_hop_people", TWO_PEOPLE_CYPHER, params, traces);
     shortest = ((rows[0]?.path as unknown[]) ?? []).map(String);
   }
-  return { shared, whyNow, intros, shortest, traces };
+  return { shared, whyNow, intros, shortest, traces, names: { viewer: nameOf(viewer), person: nameOf(person) } };
 }
 
 export async function roomExists(): Promise<boolean> {
   return (await (await getFalkor()).list()).includes(ROOM);
+}
+
+const WHY_NOW_MANY_CYPHER = `MATCH (me:Person {slug: $viewer})-[:HAS]->(x:Facet)<-[:ABOUT]-(i:Item)<-[:AUTHORED]-(them:Person)
+WHERE them.slug IN $slugs AND ($allow OR NOT (coalesce(x.protected, false) OR coalesce(i.protected, false)))
+WITH them, i, x ORDER BY i.date DESC
+WITH them, collect({item: i.node_id, type: i.type, label: i.label, date: i.date, url: i.url, via: x.label})[0] AS why
+RETURN them.slug AS slug, why`;
+
+export type WhoRow = {
+  slug: string;
+  name: string;
+  headline: string;
+  role: string;
+  avatar_url: string;
+  score: number;
+  shared: { label: string; kind: string; mine: string; theirs: string }[];
+  whyNow: { item: string; type: string; label: string; date: string; url: string; via: string } | null;
+  opener: string;
+};
+
+/** Who to meet: best matches plus each person's why-now item, in two room-graph queries. */
+export async function whoToMeet(viewer: string, limit = 8, dropProtected = true) {
+  const traces: CypherTrace[] = [];
+  const matches = await roomMatches(viewer, limit, traces, dropProtected);
+  const slugs = matches.map((row) => String(row.slug));
+  const whys = slugs.length
+    ? await traced("why_now", WHY_NOW_MANY_CYPHER, { viewer, slugs, allow: !dropProtected }, traces)
+    : [];
+  const whyBySlug = new Map(whys.map((row) => [String(row.slug), row.why as WhoRow["whyNow"]]));
+  const people: WhoRow[] = matches.map((row) => {
+    const shared = (row.shared as WhoRow["shared"]) ?? [];
+    const whyNow = whyBySlug.get(String(row.slug)) ?? null;
+    return {
+      slug: String(row.slug),
+      name: String(row.name ?? row.slug),
+      headline: String(row.headline ?? ""),
+      role: String(row.role ?? ""),
+      avatar_url: String(row.avatar_url ?? ""),
+      score: Math.round(Number(row.score) * 100) / 100,
+      shared,
+      whyNow,
+      opener: openerFor(String(row.name ?? ""), whyNow, shared),
+    };
+  });
+  return { people, traces };
+}
+
+function openerFor(name: string, why: WhoRow["whyNow"], shared: WhoRow["shared"]): string {
+  const first = name.split(" ")[0] || "there";
+  const kind = why ? ({ Post: "post", Video: "talk", Repo: "repo", Article: "article", Package: "package" } as Record<string, string>)[why.type] ?? "work" : "";
+  if (why) return `Hi ${first}, I saw your ${kind} "${why.label}". I've been working on ${why.via.toLowerCase()} too; what got you into it?`;
+  if (shared[0]) return `Hi ${first}, looks like we both work on ${shared[0].label.toLowerCase()}. What are you building with it right now?`;
+  return `Hi ${first}, what are you working on these days?`;
 }
