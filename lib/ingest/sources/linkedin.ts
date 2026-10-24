@@ -44,8 +44,18 @@ function profileItem(record: Record<string, unknown>, url: string): RawItem {
     kind: "profile",
     title: pickString(record, ["name"]),
     text: clip(text, 1500),
-    meta: { followers: record.followers, city: record.city },
+    meta: { followers: record.followers, city: record.city, headline: shortHeadline(record) },
   };
+}
+
+/** A one-line headline: their title, else the first sentence of About, else the company. */
+function shortHeadline(record: Record<string, unknown>): string {
+  const position = pickString(record, ["position", "headline"]);
+  if (position) return position.slice(0, 120);
+  const about = pickString(record, ["about"]).replace(/…$/, "");
+  const sentence = about.split(/(?<=[.!?])\s/)[0]?.trim() ?? "";
+  if (sentence && sentence.length <= 140) return sentence;
+  return pickString(asRecord(record.current_company) ?? {}, ["name"]);
 }
 
 function experienceItems(record: Record<string, unknown>, url: string): RawItem[] {

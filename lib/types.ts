@@ -98,4 +98,9 @@ export type IngestEvent = {
   count?: number;
   message?: string;
   at: string;
+  /** Activity-feed extras: a human source name, the product behind it, a sentence, and previews. */
+  label?: string;
+  product?: string;
+  detail?: string;
+  items?: string[];
 };

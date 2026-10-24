@@ -1,3 +1,4 @@
+import { sourceMeta } from "@/lib/ingest/narrate";
 import type { IngestEvent, IngestStatus } from "@/lib/types";
 
 type Run = { startedAt: string };
@@ -31,13 +32,14 @@ export function ingestEvent(
   slug: string,
   source: string,
   status: IngestStatus,
-  extra?: { count?: number; message?: string },
+  extra?: { count?: number; message?: string; detail?: string; items?: string[] },
 ): IngestEvent {
   return {
     slug,
     source,
     status,
     at: new Date().toISOString(),
+    ...sourceMeta(source),
     ...extra,
   };
 }

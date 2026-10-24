@@ -153,11 +153,13 @@ export function linkedInIdentity(items: RawItem[]): { name: string; headline: st
   const profile = items.find((item) => item.source === "linkedin" && item.kind === "profile" && item.title?.trim());
   const name = profile?.title?.trim() ?? "";
   if (!looksLikePersonName(name)) return null;
-  const headline =
+  const given = typeof profile?.meta?.headline === "string" ? profile.meta.headline.trim() : "";
+  const firstLine =
     (profile?.text ?? "")
       .split("\n")
       .map((line) => line.trim())
       .find((line) => line && line.toLowerCase() !== name.toLowerCase()) ?? "";
+  const headline = given || firstLine;
   return { name, headline: headline.slice(0, 240) };
 }
 

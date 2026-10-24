@@ -12,6 +12,8 @@ import { loadGraphModules, persistGraph } from "@/lib/ingest/store";
 import { getPerson } from "@/lib/people";
 import { updateRoomPerson } from "@/lib/room";
 import { reportFrom, saveReport } from "@/lib/ingest/report";
+import { describeFacts, describeFetch } from "@/lib/ingest/narrate";
+import { openaiModel } from "@/lib/models";
 import type { IngestEvent, PersonRow } from "@/lib/types";
 
 const SOURCE_CONCURRENCY = 8;
@@ -42,7 +44,11 @@ export async function runIngest(
   }
   resetWebSearchBudget();
   const seen: IngestEvent[] = [];
-  const emit = (source: string, status: IngestEvent["status"], extra?: { count?: number; message?: string }) => {
+  const emit = (
+    source: string,
+    status: IngestEvent["status"],
+    extra?: { count?: number; message?: string; detail?: string; items?: string[] },
+  ) => {
     const event = ingestEvent(slug, source, status, extra);
     seen.push(event);
     onEvent(event);
@@ -75,7 +81,11 @@ export async function runIngest(
     let resolved: KnownAccount[] = [];
     try {
       resolved = await resolveAccounts(person, hint, fresh);
-      emit("resolve", "done", { count: resolved.length });
+      emit("resolve", "done", {
+        count: resolved.length,
+        detail: resolved.length ? `Found ${resolved.map((account) => account.platform).join(", ")}` : "Nothing new beyond the listed links",
+        items: resolved.map((account) => account.url).slice(0, 4),
+      });
     } catch (error) {
       emit("resolve", "error", { message: messageOf(error) });
     }
@@ -89,7 +99,7 @@ export async function runIngest(
       try {
         const items = (await adapter.run(ctx)) ?? [];
         fetched.push({ source: adapter.id, items });
-        emit(adapter.id, items.length ? "done" : "skipped", { count: items.length });
+        emit(adapter.id, items.length ? "done" : "skipped", { count: items.length, ...(items.length ? describeFetch(items) : { detail: "No account found" }) });
       } catch (error) {
         const message = messageOf(error);
         if (/cap reached/i.test(message)) emit(adapter.id, "skipped", { count: 0, message });
@@ -105,7 +115,7 @@ export async function runIngest(
       ];
       const items = await researchPerson(person, known, hint, fresh);
       fetched.push({ source: "research", items });
-      emit("research", items.length ? "done" : "skipped", { count: items.length });
+      emit("research", items.length ? "done" : "skipped", { count: items.length, ...(items.length ? describeFetch(items) : { detail: "Nothing new found" }) });
     } catch (error) {
       emit("research", "error", { message: messageOf(error) });
     }
@@ -114,23 +124,23 @@ export async function runIngest(
     const batches: GraphBatch[] = [seedGraph(person, accounts, fetchedAt)];
     const toExtract = fetched.filter((batch) => batch.items.length > 0);
     await mapPool(toExtract, EXTRACT_CONCURRENCY, async (batch) => {
-      emit(batch.source, "extracting", { count: batch.items.length });
+      emit(batch.source, "extracting", { count: batch.items.length, detail: `Reading ${batch.items.length} items with ${openaiModel()}` });
       try {
         const graph = await extractBatch(person, batch.source, batch.items);
         batches.push(graph);
-        emit(batch.source, "done", { count: graph.nodes.length, message: "extracted" });
+        emit(batch.source, "done", { count: graph.nodes.length, message: "extracted", ...describeFacts(graph.nodes) });
       } catch (error) {
         emit(batch.source, "error", { message: messageOf(error) });
       }
     });
 
     const merged = mergeGraphs(batches);
-    emit("graph", "writing", { count: merged.nodes.length });
+    emit("graph", "writing", { count: merged.nodes.length, detail: `Writing ${merged.nodes.length} facts and ${merged.edges.length} links to person:${slug}` });
     await persistGraph(slug, merged.nodes, merged.edges);
     emit("graph", "done", { count: merged.nodes.length, message: `${merged.edges.length} edges` });
     try {
       await updateRoomPerson(slug);
-      emit("room", "done", { message: "room graph updated" });
+      emit("room", "done", { message: "room graph updated", detail: "Now matchable against everyone in the room" });
     } catch (error) {
       emit("room", "error", { message: messageOf(error) });
     }
