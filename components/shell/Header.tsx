@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PrivacyToggle } from "./privacy";
 import { ThemeToggle } from "./ThemeToggle";
 import { ViewerPicker } from "./ViewerPicker";
 import type { PersonListItem } from "./model";
@@ -19,6 +20,7 @@ export function Header({
       </Link>
       <ViewerPicker people={people} viewerSlug={viewerSlug} onChange={onViewer} />
       <div className="end">
+        <PrivacyToggle />
         <ThemeToggle />
       </div>
     </header>

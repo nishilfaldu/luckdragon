@@ -1,5 +1,6 @@
 "use client";
 
+import { getDropProtected, subscribe as subscribePrivacy } from "./privacy";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GraphNode } from "@/lib/types";
 import { ApiError, fetchGraph, fetchPeople, postPerson, streamChat, streamIngest, type ChatStreamEvent } from "./api";
@@ -40,8 +41,6 @@ export function AppShell() {
   const [hoverCite, setHoverCite] = useState<Citation | null>(null);
   const [centerNonce, setCenterNonce] = useState(0);
   const [focus, setFocus] = useState<FocusTarget | null>(null);
-  const [dropProtected, setDropProtected] = useState(true);
-  const dropProtectedRef = useRef(true);
   const [prefill, setPrefill] = useState<{ nonce: number; text: string } | null>(null);
   const fromApi = useRef(false);
   const appliedPerson = useRef(false);
@@ -239,7 +238,7 @@ export function AppShell() {
           person: args.person,
           messages: args.mode === "brief" ? [] : history,
           ...(args.mode === "brief" ? { mode: "brief" as const } : {}),
-          dropProtected: dropProtectedRef.current,
+          dropProtected: getDropProtected(),
         },
         (event) => {
           if (!current()) return;
@@ -309,6 +308,19 @@ export function AppShell() {
       return { ...prev, [key]: { messages, streaming: false, error } };
     });
   }
+
+  // Flipping "protected traits" reloads the visible graphs and rewrites the Brief under the new rule.
+  useEffect(
+    () =>
+      subscribePrivacy(() => {
+        const viewer = viewerRef.current;
+        const selected = selectedRef.current;
+        if (viewer) void loadGraph(viewer);
+        if (selected && selected !== viewer) void loadGraph(selected);
+        if (viewer && selected) runChatRef.current({ viewer, person: selected, mode: "brief" });
+      }),
+    [loadGraph],
+  );
 
   useEffect(() => {
     runChatRef.current = (args) => {
@@ -492,13 +504,6 @@ export function AppShell() {
           onCiteClick={(cite) => {
             hoverCitation(cite);
             setFocus({ slug: cite.slug, id: cite.nodeId });
-          }}
-          dropProtected={dropProtected}
-          onToggleProtected={(next) => {
-            dropProtectedRef.current = next;
-            setDropProtected(next);
-            // Rewrite the Brief under the new rule.
-            if (viewerSlug && selectedSlug) void runChat({ viewer: viewerSlug, person: selectedSlug, mode: "brief" });
           }}
           onSend={(text) => {
             if (!viewerSlug || !selectedSlug) return;

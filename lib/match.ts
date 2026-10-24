@@ -1,6 +1,7 @@
 import { listPersonGraphs, roQuery } from "@/lib/falkor";
 import { assertPersonSlug } from "@/lib/graph/ids";
 import { readPeople } from "@/lib/people";
+import { isProtectedText } from "@/lib/protected";
 import type { PersonRow } from "@/lib/types";
 
 const FACETS = ["Organization", "Skill", "Topic", "Location"] as const;
@@ -205,7 +206,25 @@ const globalForMatch = globalThis as typeof globalThis & {
  * `candidates` limits who is scored; omit it to score every other stored graph.
  * Results are cached for 60 seconds per viewer (and candidate set).
  */
-export async function matchesFor(viewerSlug: string, candidates?: string[]): Promise<PersonMatch[]> {
+export async function matchesFor(
+  viewerSlug: string,
+  candidates?: string[],
+  dropProtected = true,
+): Promise<PersonMatch[]> {
+  const all = await allMatches(viewerSlug, candidates);
+  return dropProtected ? all.flatMap(withoutProtected) : all;
+}
+
+/** Drop protected shared items and why-now items; a match with nothing left to share is dropped. */
+function withoutProtected(match: PersonMatch): PersonMatch[] {
+  const shared = match.shared.filter((item) => !isProtectedText(item.label));
+  if (shared.length === 0) return [];
+  const whyNow =
+    match.whyNow && !isProtectedText(`${match.whyNow.label} ${match.whyNow.sharedLabel ?? ""}`) ? match.whyNow : null;
+  return [{ ...match, shared, whyNow }];
+}
+
+async function allMatches(viewerSlug: string, candidates?: string[]): Promise<PersonMatch[]> {
   const viewer = viewerSlug.trim();
   if (!viewer) return [];
 
@@ -312,8 +331,8 @@ async function compute(viewerSlug: string, candidates: string[] | undefined): Pr
  * Top matches plus a one-sentence opener. The opener names their why-now item
  * and, when one exists, the viewer's newest item on that same shared label.
  */
-export async function planFor(viewerSlug: string, limit: number): Promise<RoomPlanRow[]> {
-  const matches = await matchesFor(viewerSlug);
+export async function planFor(viewerSlug: string, limit: number, dropProtected = true): Promise<RoomPlanRow[]> {
+  const matches = await matchesFor(viewerSlug, undefined, dropProtected);
   const slice = matches.slice(0, Math.max(0, limit));
   return mapPool(slice, CONCURRENCY, (match) => planRow(viewerSlug, match));
 }

@@ -1,4 +1,5 @@
 import { getFalkor, listPersonGraphs, query } from "@/lib/falkor";
+import { isProtectedText } from "@/lib/protected";
 
 /**
  * The room graph: one shared FalkorDB graph (`room`) projected from the per-person graphs.
@@ -56,8 +57,8 @@ type PersonFacts = {
   headline: string;
   role: string;
   avatar_url: string;
-  facets: { kind: string; key: string; label: string; nodeId: string }[];
-  items: { nodeId: string; type: string; label: string; date: string; url: string; about: string[] }[];
+  facets: { kind: string; key: string; label: string; nodeId: string; protected: boolean }[];
+  items: { nodeId: string; type: string; label: string; date: string; url: string; about: string[]; protected: boolean }[];
 };
 
 async function readPerson(slug: string): Promise<PersonFacts | null> {
@@ -91,7 +92,7 @@ async function readPerson(slug: string): Promise<PersonFacts | null> {
       const key = facetKey(label);
       if (!key || IGNORED.has(key) || seen.has(key)) return [];
       seen.add(key);
-      return [{ kind: String(facet.kind), key, label, nodeId: String(facet.id) }];
+      return [{ kind: String(facet.kind), key, label, nodeId: String(facet.id), protected: isProtectedText(label) }];
     }),
     items: items.data.map((item) => ({
       nodeId: String(item.id),
@@ -99,6 +100,7 @@ async function readPerson(slug: string): Promise<PersonFacts | null> {
       label: String(item.label ?? ""),
       date: String(item.date ?? ""),
       url: String(item.url ?? ""),
+      protected: isProtectedText(String(item.label ?? "")),
       about: ((item.about as unknown[]) ?? []).map((value) => facetKey(String(value ?? ""))).filter(Boolean),
     })),
   };
@@ -119,7 +121,7 @@ export async function updateRoomPerson(slug: string): Promise<void> {
       `MATCH (p:Person {slug: $slug})
        UNWIND $facets AS f
        MERGE (x:Facet {key: f.key})
-       ON CREATE SET x.label = f.label, x.kind = f.kind
+       ON CREATE SET x.label = f.label, x.kind = f.kind, x.protected = f.protected
        CREATE (p)-[:HAS {kind: f.kind, node_id: f.nodeId}]->(x)`,
       { slug, facets: facts.facets },
       false,
@@ -129,7 +131,7 @@ export async function updateRoomPerson(slug: string): Promise<void> {
     await roomQuery(
       `MATCH (p:Person {slug: $slug})
        UNWIND $items AS it
-       CREATE (p)-[:AUTHORED]->(i:Item {slug: $slug, node_id: it.nodeId, type: it.type, label: it.label, date: it.date, url: it.url})
+       CREATE (p)-[:AUTHORED]->(i:Item {slug: $slug, node_id: it.nodeId, type: it.type, label: it.label, date: it.date, url: it.url, protected: it.protected})
        WITH i, it
        UNWIND it.about AS key
        MATCH (x:Facet {key: key})
@@ -179,7 +181,7 @@ async function traced(name: string, cypher: string, params: Record<string, unkno
 }
 
 export const MATCHES_CYPHER = `MATCH (me:Person {slug: $viewer})-[mine:HAS]->(x:Facet)<-[theirs:HAS]-(them:Person)
-WHERE them.slug <> $viewer
+WHERE them.slug <> $viewer AND ($allow OR NOT coalesce(x.protected, false))
 WITH them, x, mine, theirs ORDER BY x.weight DESC
 WITH them, sum(x.weight) AS score,
      collect({label: x.label, kind: x.kind, mine: mine.node_id, theirs: theirs.node_id})[0..5] AS shared
@@ -187,35 +189,39 @@ RETURN them.slug AS slug, them.name AS name, them.headline AS headline, them.rol
        them.avatar_url AS avatar_url, score, shared
 ORDER BY score DESC LIMIT $limit`;
 
-export async function roomMatches(viewer: string, limit = 8, traces: CypherTrace[] = []) {
-  return traced("best_matches", MATCHES_CYPHER, { viewer, limit }, traces);
+export async function roomMatches(viewer: string, limit = 8, traces: CypherTrace[] = [], dropProtected = true) {
+  return traced("best_matches", MATCHES_CYPHER, { viewer, limit, allow: !dropProtected }, traces);
 }
 
 const SHARED_CYPHER = `MATCH (me:Person {slug: $viewer})-[mine:HAS]->(x:Facet)<-[theirs:HAS]-(them:Person {slug: $person})
+WHERE $allow OR NOT coalesce(x.protected, false)
 RETURN x.label AS label, x.kind AS kind, x.people AS people, mine.node_id AS mine, theirs.node_id AS theirs
 ORDER BY x.weight DESC LIMIT 8`;
 
 const WHY_NOW_CYPHER = `MATCH (me:Person {slug: $viewer})-[:HAS]->(x:Facet)<-[:ABOUT]-(i:Item)<-[:AUTHORED]-(them:Person {slug: $person})
+WHERE $allow OR NOT (coalesce(x.protected, false) OR coalesce(i.protected, false))
 RETURN i.node_id AS item, i.type AS type, i.label AS label, i.date AS date, i.url AS url, x.label AS via
 ORDER BY i.date DESC LIMIT 3`;
 
 const INTRO_CYPHER = `MATCH (me:Person {slug: $viewer})-[:HAS]->(a:Facet)<-[:HAS]-(mutual:Person)-[:HAS]->(b:Facet)<-[:HAS]-(them:Person {slug: $person})
 WHERE mutual.slug <> $viewer AND mutual.slug <> $person AND a <> b
+  AND ($allow OR NOT (coalesce(a.protected, false) OR coalesce(b.protected, false)))
 RETURN mutual.slug AS mutual, mutual.name AS mutualName, a.label AS mine, b.label AS theirs, a.weight + b.weight AS strength
 ORDER BY strength DESC LIMIT 3`;
 
 // Explicit directed patterns: FalkorDB Cloud rejects undirected shortestPath, and these read clearly on screen.
 const TWO_PEOPLE_CYPHER = `MATCH (me:Person {slug: $viewer})-[:HAS]->(a:Facet)<-[:HAS]-(p1:Person)-[:HAS]->(b:Facet)<-[:HAS]-(p2:Person)-[:HAS]->(c:Facet)<-[:HAS]-(them:Person {slug: $person})
 WHERE p1 <> p2 AND p1.slug <> $person AND p2.slug <> $viewer
+  AND ($allow OR NOT (coalesce(a.protected, false) OR coalesce(b.protected, false) OR coalesce(c.protected, false)))
 RETURN [me.name, a.label, p1.name, b.label, p2.name, c.label, them.name] AS path
 ORDER BY a.weight + b.weight + c.weight DESC LIMIT 1`;
 
 export type RoomPaths = Awaited<ReturnType<typeof roomPaths>>;
 
 /** Everything the graph can say about how the viewer connects to one person. */
-export async function roomPaths(viewer: string, person: string) {
+export async function roomPaths(viewer: string, person: string, dropProtected = true) {
   const traces: CypherTrace[] = [];
-  const params = { viewer, person };
+  const params = { viewer, person, allow: !dropProtected };
   const [shared, whyNow, intros, names] = await Promise.all([
     traced("shared_facets", SHARED_CYPHER, params, traces),
     traced("why_now", WHY_NOW_CYPHER, params, traces),

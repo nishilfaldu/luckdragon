@@ -1,3 +1,4 @@
+import { isProtectedNode } from "@/lib/protected";
 import { graphName, listPersonGraphs, roQuery } from "@/lib/falkor";
 import { EDGE_TYPES, NODE_TYPES, type EdgeType, type GraphEdge, type GraphNode, type NodeType } from "@/lib/types";
 
@@ -37,7 +38,9 @@ export async function nodeCount(slug: string): Promise<number> {
   return Number.isFinite(count) ? count : 0;
 }
 
-export async function getGraph(slug: string): Promise<PersonGraph> {
+/** Protected-trait nodes are left out unless `dropProtected` is false. */
+export async function getGraph(slug: string, options: { dropProtected?: boolean } = {}): Promise<PersonGraph> {
+  const dropProtected = options.dropProtected !== false;
   const person = assertPersonSlug(slug);
   if (!(await graphExists(person))) throw new GraphNotFoundError(person);
 
@@ -49,7 +52,7 @@ export async function getGraph(slug: string): Promise<PersonGraph> {
   const nodes: GraphNode[] = [];
   for (const row of nodeResult.data) {
     const node = fromStoredNode(row.n);
-    if (node) nodes.push(node);
+    if (node && !(dropProtected && isProtectedNode(node))) nodes.push(node);
   }
 
   const known = new Set(nodes.map((node) => node.id));

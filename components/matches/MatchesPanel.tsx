@@ -1,5 +1,6 @@
 "use client";
 
+import { useDropProtected } from "@/components/shell/privacy";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/shell/Avatar";
 import { NODE_COLOR_VAR, type NodeType } from "@/lib/types";
@@ -57,6 +58,7 @@ export function MatchesPanel({
   onSelect: (slug: string) => void;
   onHighlight?: (nodeIds: string[]) => void;
 }) {
+  const drop = useDropProtected();
   const [loaded, setLoaded] = useState<LoadedMatches>({ viewer: null, status: "idle", matches: [], reason: null });
 
   useEffect(() => {
@@ -66,7 +68,7 @@ export function MatchesPanel({
 
     void (async () => {
       try {
-        const response = await fetch(`/api/matches?viewer=${encodeURIComponent(viewer)}&limit=8`, {
+        const response = await fetch(`/api/matches?viewer=${encodeURIComponent(viewer)}&limit=8${drop ? "" : "&protected=allow"}`, {
           signal: ctrl.signal,
         });
         const body = (await response.json()) as {
@@ -106,7 +108,7 @@ export function MatchesPanel({
       live = false;
       ctrl.abort();
     };
-  }, [viewer]);
+  }, [viewer, drop]);
 
   const current = loaded.viewer === viewer ? loaded : null;
   const status = !viewer ? "idle" : current?.status ?? "loading";

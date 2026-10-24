@@ -1,5 +1,6 @@
 "use client";
 
+import { useDropProtected } from "@/components/shell/privacy";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/shell/Avatar";
 import { NODE_COLOR_VAR, type NodeType } from "@/lib/types";
@@ -53,6 +54,7 @@ export function RoomPlan({
   viewer: string | null;
   onSelect: (slug: string) => void;
 }) {
+  const drop = useDropProtected();
   const [loaded, setLoaded] = useState<Loaded>({ viewer: null, status: "idle", plans: [], reason: null });
 
   useEffect(() => {
@@ -62,7 +64,7 @@ export function RoomPlan({
 
     void (async () => {
       try {
-        const response = await fetch(`/api/plan?viewer=${encodeURIComponent(viewer)}&limit=6`, {
+        const response = await fetch(`/api/plan?viewer=${encodeURIComponent(viewer)}&limit=6${drop ? "" : "&protected=allow"}`, {
           signal: ctrl.signal,
         });
         const body = (await response.json()) as {
@@ -102,7 +104,7 @@ export function RoomPlan({
       live = false;
       ctrl.abort();
     };
-  }, [viewer]);
+  }, [viewer, drop]);
 
   const current = loaded.viewer === viewer ? loaded : null;
   const status = !viewer ? "idle" : current?.status ?? "loading";

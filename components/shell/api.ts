@@ -1,3 +1,4 @@
+import { protectedParam } from "./privacy";
 import type { IngestEvent } from "@/lib/types";
 import { normalizeGraph, normalizePerson, type GraphPayload, type PersonListItem } from "./model";
 
@@ -46,7 +47,7 @@ export async function postPerson(lumaUrl: string): Promise<PersonListItem> {
 }
 
 export async function fetchGraph(slug: string): Promise<GraphPayload> {
-  const response = await fetch(`/api/graph/${encodeURIComponent(slug)}`, { cache: "no-store" });
+  const response = await fetch(`/api/graph/${encodeURIComponent(slug)}${protectedParam("?")}`, { cache: "no-store" });
   if (response.status === 404) throw new ApiError(404, "This graph isn't ready yet.");
   if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response, "Couldn't load this graph."));
   const graph = normalizeGraph(await response.json());

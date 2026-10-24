@@ -61,8 +61,9 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<ChatEven
   let viewerGraph: PersonGraph | null = null;
   try {
     if (!(await graphExists(person))) throw new GraphNotFoundError(person);
-    personGraph = await getGraph(person);
-    if (await graphExists(viewer)) viewerGraph = await getGraph(viewer);
+    const graphOptions = { dropProtected: request.dropProtected !== false };
+    personGraph = await getGraph(person, graphOptions);
+    if (await graphExists(viewer)) viewerGraph = await getGraph(viewer, graphOptions);
   } catch (error) {
     yield { type: "error", message: publicError(error) };
     return;
@@ -72,7 +73,7 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<ChatEven
   let room: RoomPaths | null = null;
   if (viewer !== person) {
     try {
-      if (await roomExists()) room = await roomPaths(viewer, person);
+      if (await roomExists()) room = await roomPaths(viewer, person, request.dropProtected !== false);
     } catch {
       room = null;
     }

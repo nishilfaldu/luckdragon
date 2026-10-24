@@ -1,3 +1,4 @@
+import { dropProtectedFrom } from "@/lib/protected";
 import { connection } from "next/server";
 import { unstable_rethrow } from "next/navigation";
 
@@ -35,7 +36,7 @@ export async function GET(request: Request) {
     if (!graphs.includes(`person:${slug}`)) {
       return Response.json({ matches: [], reason: "No graph for this viewer yet." });
     }
-    const matches = await matchesFor(slug);
+    const matches = await matchesFor(slug, undefined, dropProtectedFrom(request));
     const sliced = matches.slice(0, limit);
     if (sliced.length === 0) {
       return Response.json({ matches: [], reason: "No shared ground yet." });
