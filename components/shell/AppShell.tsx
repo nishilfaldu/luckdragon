@@ -461,6 +461,9 @@ export function AppShell() {
           onIngest={(slug) => void startIngest(slug)}
           onAdd={addPerson}
           onRetry={() => void loadPeople()}
+          onHighlight={(nodeIds) => {
+            if (viewerSlug && nodeIds[0]) setFocus({ slug: viewerSlug, id: nodeIds[0] });
+          }}
         />
         <GraphPane
           viewer={viewer}

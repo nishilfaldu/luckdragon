@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { MatchesPanel } from "@/components/matches/MatchesPanel";
 import { Avatar } from "./Avatar";
 import {
   isHttpUrl,
@@ -22,6 +23,7 @@ export function PeoplePane({
   onIngest,
   onAdd,
   onRetry,
+  onHighlight,
 }: {
   people: PersonListItem[] | null;
   note: string | null;
@@ -32,6 +34,7 @@ export function PeoplePane({
   onIngest: (slug: string) => void;
   onAdd: (url: string) => Promise<void>;
   onRetry: () => void;
+  onHighlight?: (nodeIds: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
 
@@ -86,6 +89,10 @@ export function PeoplePane({
           </div>
         ) : null}
         {!viewer && people && people.length > 0 ? <p className="note">Choose who you are with I am…</p> : null}
+        {viewerSlug && !query.trim() ? (
+          <MatchesPanel viewer={viewerSlug} onSelect={onSelect} onHighlight={onHighlight} />
+        ) : null}
+        {viewerSlug && !query.trim() ? <p className="block-label">Everyone</p> : null}
         <div className="rows">
           {rest.map((person) => (
             <PersonRow

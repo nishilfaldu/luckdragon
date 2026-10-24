@@ -1,0 +1,23 @@
+/* Glance tokens only. Rows reuse the people-pane classes (.person, .chip, .block-label). */
+.panel {
+  margin: 2px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bar {
+  flex: none;
+  width: 52px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
