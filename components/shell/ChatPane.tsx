@@ -1,9 +1,10 @@
 "use client";
 
+import { TraceLine } from "./TraceModal";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Markdown } from "./markdown";
-import { displayLabel, findNode, type ChatThread, type Citation, type GraphState, type PersonListItem, type ToolCall, type UiMessage } from "./model";
+import { citationsIn, displayLabel, findNode, type ChatThread, type Citation, type GraphState, type PersonListItem, type UiMessage } from "./model";
 
 const EMPTY_MESSAGES: UiMessage[] = [];
 
@@ -156,13 +157,8 @@ export function ChatPane({
                   />
                 ) : null}
                 {waiting ? <BriefSkeleton label={brief ? "Writing the brief…" : "Writing…"} /> : null}
-                {message.tools.length > 0 ? (
-                  <details className="how">
-                    <summary>How I know this</summary>
-                    {message.tools.map((tool) => (
-                      <ToolNote key={tool.id} tool={tool} />
-                    ))}
-                  </details>
+                {message.tools.length > 0 && !(streaming && message.id === lastAssistant?.id) ? (
+                  <TraceLine tools={message.tools} citedNodes={new Set(citationsIn(message.content).map((cite) => `${cite.slug}:${cite.nodeId}`)).size} />
                 ) : null}
                 {message.id === lastAssistant?.id && message.suggestions.length > 0 && !streaming ? (
                   <div className="suggestions">
@@ -224,29 +220,3 @@ function BriefSkeleton({ label }: { label: string }) {
   );
 }
 
-function ToolNote({ tool }: { tool: ToolCall }) {
-  const cypher = tool.cypher ?? queryOf(tool.input);
-  const bits = [
-    tool.name,
-    tool.rowCount != null ? `${tool.rowCount} rows` : null,
-    tool.ms != null ? `${tool.ms} ms` : null,
-  ].filter((bit): bit is string => Boolean(bit));
-  return (
-    <div className="tool">
-      <div className="meta">
-        {bits.map((bit) => (
-          <span className="chip" key={bit}>
-            {bit}
-          </span>
-        ))}
-      </div>
-      {cypher ? <pre>{cypher}</pre> : null}
-    </div>
-  );
-}
-
-function queryOf(input: unknown): string | undefined {
-  if (!input || typeof input !== "object" || !("query" in input)) return undefined;
-  const query = (input as { query?: unknown }).query;
-  return typeof query === "string" ? query : undefined;
-}
