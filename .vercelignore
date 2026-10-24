@@ -1,0 +1,6 @@
+data/
+.env*
+!.env.example
+.next*
+.cursor/
+node_modules/
