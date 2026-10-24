@@ -119,7 +119,7 @@ function ProductList({ summary }: { summary: SourceSummary }) {
     <>
       {summary.freshness ? <Freshness freshness={summary.freshness} /> : null}
       <p style={{ ...NOTE, marginBottom: 8 }}>
-        {total} nodes. {share}% of fetched facts came through Bright Data.
+        {total} facts. {share}% of the fetched ones came through Bright Data.
       </p>
       <div
         role="img"
