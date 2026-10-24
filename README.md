@@ -4,6 +4,37 @@ A people explorer for a conference room. Each attendee gets their own FalkorDB g
 
 You walk into a room of strangers with name tags. What they have shipped, talked about, and worked on is spread across LinkedIn, GitHub, talks, and posts. Luckdragon pulls that public footprint into one graph per person and answers questions against those graphs.
 
+## Features
+
+**People and data**
+- **One graph per attendee:** every person gets their own FalkorDB graph (`person:<slug>`): accounts, roles, posts, talks, repos, topics, skills, places.
+- **Live web ingest:** Bright Data Web Scraper API (LinkedIn, X, YouTube, GitHub, Instagram, Threads, Bluesky, Reddit, Crunchbase, npm/PyPI), SERP API, and Web Unlocker build each graph from public pages.
+- **Identity resolution:** missing socials are found by search and matched with a confidence score; anything under 0.5 is dropped.
+- **Research agent:** an agent with Bright Data search and page tools finds talks, podcasts, and articles the fixed sources missed.
+- **Live ingest progress:** each source lights up (fetching → extracting → done) as the person's graph grows on screen.
+- **Where this graph came from:** a per-person breakdown of which Bright Data product produced which part of the graph.
+- **Every node is cited:** each fact keeps its source URL, fetch time, confidence, and how the account was matched.
+
+**Exploring a person**
+- **Side-by-side graphs:** your graph and theirs next to each other; click any node for its card and source.
+- **The Brief:** Who, Lately, Common ground, and a Best opener, written from both graphs, with every line citing nodes.
+- **Best opener, scored:** the agent weighs three openers, recommends one with a score and the reason, and keeps two alternates.
+- **Citation chips:** hover a chip to light up that node in either graph; click to center on it and open its card.
+- **Ask anything:** follow-up questions run read-only Cypher against FalkorDB.
+- **How I know this:** every answer shows the exact Cypher it ran, the row count, and the time.
+- **Your own Brief:** select yourself to see what the room sees about you and what people may ask you about.
+
+**The room**
+- **Best matches for you:** people ranked by shared topics, skills, employers, and places across graphs, with the shared items as chips.
+
+**Trust and safety**
+- **Protected traits toggle:** on by default, the Brief never uses health, religion, politics, ethnicity, orientation, family, or age; flipping it rewrites the Brief.
+- **Read-only queries:** the agent's Cypher runs through `GRAPH.RO_QUERY`, and writes, `LOAD CSV`, and write procedures are rejected.
+- **No guessed pronouns:** the Brief uses first names or "they".
+
+**Deploy**
+- **Public read-only site:** https://luckdragon.vercel.app serves all graphs from FalkorDB Cloud; ingest runs on the presenter's laptop.
+
 ## How it works
 
 ### One FalkorDB graph per person
