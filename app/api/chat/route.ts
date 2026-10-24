@@ -16,6 +16,7 @@ const bodySchema = z.object({
     )
     .max(40),
   mode: z.enum(["brief"]).optional(),
+  dropProtected: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {

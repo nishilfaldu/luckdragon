@@ -73,6 +73,7 @@ export async function streamChat(
     person: string;
     messages: { role: "user" | "assistant"; content: string }[];
     mode?: "brief";
+    dropProtected?: boolean;
   },
   onEvent: (event: ChatStreamEvent) => void,
   signal: AbortSignal,

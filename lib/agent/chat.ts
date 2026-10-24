@@ -27,6 +27,7 @@ export type ChatRequest = {
   person: string;
   messages: ChatMessage[];
   mode?: "brief";
+  dropProtected?: boolean;
 };
 
 export type ChatEvent =
@@ -78,6 +79,7 @@ export async function* streamChat(request: ChatRequest): AsyncGenerator<ChatEven
       personGraph,
       today: today.toISOString().slice(0, 10),
       recentSince: recent.toISOString().slice(0, 10),
+      dropProtected: request.dropProtected,
     }),
     tools: createAgentTools(),
     modelSettings: request.mode === "brief" ? { toolChoice: "none" } : { toolChoice: "auto" },

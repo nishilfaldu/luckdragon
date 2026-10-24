@@ -19,6 +19,8 @@ export function ChatPane({
   onCiteClick,
   onSend,
   onRetry,
+  dropProtected,
+  onToggleProtected,
 }: {
   person: PersonListItem | null;
   viewer: PersonListItem | null;
@@ -30,6 +32,8 @@ export function ChatPane({
   onCiteClick: (cite: Citation) => void;
   onSend: (text: string) => void;
   onRetry: () => void;
+  dropProtected: boolean;
+  onToggleProtected: (next: boolean) => void;
 }) {
   const personSlug = person?.slug ?? "";
   const prefillNonce = prefill?.nonce ?? 0;
@@ -107,6 +111,20 @@ export function ChatPane({
     <section className="pane pane-chat" aria-label="Chat" data-pane="chat">
       <div className="chat-scroll" ref={scroller}>
         <p className="eyebrow">{person.name}</p>
+        <label
+          className="protected-toggle"
+          title="Health, religion, politics, ethnicity or nationality, sexual orientation, family, and age"
+          style={{ display: "flex", alignItems: "center", gap: 8, margin: "6px 0 2px", fontSize: 14, color: "var(--muted)", cursor: "pointer" }}
+        >
+          <input
+            type="checkbox"
+            role="switch"
+            checked={dropProtected}
+            onChange={(event) => onToggleProtected(event.target.checked)}
+            style={{ accentColor: "var(--green)", width: 15, height: 15, margin: 0 }}
+          />
+          {dropProtected ? "Protected traits dropped" : "Protected traits allowed"}
+        </label>
         <details className="how sources-how" style={{ margin: "4px 0 14px" }}>
           <summary>Where this graph came from</summary>
           <SourcesPanel slug={person.slug} />

@@ -32,6 +32,9 @@ INTERESTED_IN: Person -> Topic (weight)
 BASED_IN: Person -> Location
 `.trim();
 
+const PROTECTED_RULE =
+  "- Never use protected traits in any section, even if they appear in the graph: health, religion, politics, ethnicity or nationality, sexual orientation, family or relationship status, age. Stick to work, projects, talks, writing, and public professional interests.";
+
 function PAIR_BRIEF(viewer: string, person: string, recentSince: string): string {
   return `When asked for the Brief, use exactly these four sections, each as a "### " heading: Who, Lately, Common ground, Best opener.
 The Brief is about ${person}. ${viewer} is the person reading it.
@@ -74,6 +77,8 @@ export function buildInstructions(input: {
   personGraph: { nodes: GraphNode[]; links: GraphEdge[] } | null;
   today: string;
   recentSince: string;
+  /** Default true: keep protected traits out of every answer. */
+  dropProtected?: boolean;
 }): string {
   const viewerText = input.viewerGraph
     ? serializeGraph(input.viewer, input.viewerGraph)
@@ -111,7 +116,7 @@ Writing rules (the answer is read on a projector, in a narrow column):
 - Use short markdown bullets ("- "), one fact per bullet, at most 25 words each.
 - Put citations at the end of the bullet, at most 2 per bullet (common ground: exactly one from each graph).
 - No bold inside bullets except a project or talk name.
-- Never use protected traits in any section, even if they appear in the graph: health, religion, politics, ethnicity or nationality, sexual orientation, family or relationship status, age. Stick to work, projects, talks, writing, and public professional interests.
+${input.dropProtected === false ? "" : PROTECTED_RULE}
 
 ${input.viewer === input.person ? SELF_BRIEF(input.person) : PAIR_BRIEF(input.viewer, input.person, input.recentSince)}
 

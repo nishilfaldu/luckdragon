@@ -40,6 +40,8 @@ export function AppShell() {
   const [hoverCite, setHoverCite] = useState<Citation | null>(null);
   const [centerNonce, setCenterNonce] = useState(0);
   const [focus, setFocus] = useState<FocusTarget | null>(null);
+  const [dropProtected, setDropProtected] = useState(true);
+  const dropProtectedRef = useRef(true);
   const [prefill, setPrefill] = useState<{ nonce: number; text: string } | null>(null);
   const fromApi = useRef(false);
   const appliedPerson = useRef(false);
@@ -237,6 +239,7 @@ export function AppShell() {
           person: args.person,
           messages: args.mode === "brief" ? [] : history,
           ...(args.mode === "brief" ? { mode: "brief" as const } : {}),
+          dropProtected: dropProtectedRef.current,
         },
         (event) => {
           if (!current()) return;
@@ -488,6 +491,13 @@ export function AppShell() {
           onCiteClick={(cite) => {
             hoverCitation(cite);
             setFocus({ slug: cite.slug, id: cite.nodeId });
+          }}
+          dropProtected={dropProtected}
+          onToggleProtected={(next) => {
+            dropProtectedRef.current = next;
+            setDropProtected(next);
+            // Rewrite the Brief under the new rule.
+            if (viewerSlug && selectedSlug) void runChat({ viewer: viewerSlug, person: selectedSlug, mode: "brief" });
           }}
           onSend={(text) => {
             if (!viewerSlug || !selectedSlug) return;
