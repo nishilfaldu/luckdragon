@@ -1,6 +1,5 @@
 "use client";
 
-import { SourcesPanel } from "@/components/sources/SourcesPanel";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Markdown } from "./markdown";
@@ -125,10 +124,6 @@ export function ChatPane({
           />
           {dropProtected ? "Protected traits dropped" : "Protected traits allowed"}
         </label>
-        <details className="how sources-how" style={{ margin: "4px 0 14px" }}>
-          <summary>Data sources</summary>
-          <SourcesPanel slug={person.slug} />
-        </details>
         {!viewer ? <p className="pane-copy">Choose who you are to get a brief.</p> : null}
         {viewer && !thread && (!personReady || !viewerReady) ? (
           <p className="pane-copy">

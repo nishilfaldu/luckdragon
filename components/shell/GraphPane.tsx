@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { NODE_COLOR_VAR, NODE_TYPES, type GraphNode, type NodeType } from "@/lib/types";
 import { ForceGraph } from "./ForceGraph";
 import { findNode, type Citation, type FocusTarget, type GraphState, type PersonListItem } from "./model";
+import { SourcesPanel } from "@/components/sources/SourcesPanel";
 import { NodeCard } from "./NodeCard";
 
 export function GraphPane({
@@ -113,6 +114,7 @@ function GraphColumn({
   onRetry: (slug: string) => void;
 }) {
   const [hovered, setHovered] = useState<GraphNode | null>(null);
+  const [showSources, setShowSources] = useState(false);
   const [pointer, setPointer] = useState({ x: 24, y: 24, width: 320, height: 480 });
   const focused = focus?.slug === person.slug ? findNode(state, focus.id) ?? null : null;
   const highlightIds = idsFor(person.slug, citations, hoverCite, focused?.id ?? null);
@@ -133,6 +135,32 @@ function GraphColumn({
       }}
     >
       <p className="graph-label">{title}</p>
+      {state?.status === "ready" ? (
+        <button
+          type="button"
+          className="pill sm"
+          aria-expanded={showSources}
+          onClick={() => setShowSources((open) => !open)}
+          style={{ position: "absolute", zIndex: 3, top: 12, right: 14, fontSize: 12.5, color: "var(--muted)" }}
+        >
+          {showSources ? "Hide sources" : "Data sources"}
+        </button>
+      ) : null}
+      {showSources && state?.status === "ready" ? (
+        <div
+          style={{
+            position: "absolute", zIndex: 5, top: 46, right: 12, width: "min(320px, calc(100% - 24px))",
+            maxHeight: "calc(100% - 100px)", overflow: "auto", padding: "12px 14px",
+            border: "1px solid var(--line)", borderRadius: 18, background: "var(--surface)",
+            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.06)",
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 13, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
+            Data sources
+          </p>
+          <SourcesPanel slug={person.slug} />
+        </div>
+      ) : null}
       {!state || state.status === "loading" ? (
         <div className="center-note">
           <p className="sr-only">Loading the graph…</p>
