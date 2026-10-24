@@ -49,3 +49,4 @@ data/raw-fallback-backup
 data/people.csv
 data/luma/
 .cursor/
+/.next-*/
