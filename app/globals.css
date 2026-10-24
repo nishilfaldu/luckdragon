@@ -407,3 +407,152 @@ a { color: inherit; text-decoration-color: var(--faint); text-underline-offset: 
   .pill .who { max-width: 140px; }
 }
 
+
+/* MatchesPanel.tsx (was a CSS module; this Turbopack setup treats modules as plain CSS) */
+/* Rows reuse the people-pane classes (.person, .chip, .block-label). */
+.mp-panel {
+  margin: 2px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mp-bar {
+  flex: none;
+  width: 52px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.mp-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.mp-why {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+
+/* RoomPlan.tsx (was a CSS module; this Turbopack setup treats modules as plain CSS) */
+/* Glance tokens. Fills the graph pane, including when it replaces the empty note. */
+.rp-plan {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 16px 18px 28px;
+  text-align: left;
+  background: var(--bg);
+  container-type: inline-size;
+}
+
+.rp-table {
+  min-width: 0;
+}
+
+.rp-head,
+.rp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, 0.95fr) minmax(0, 1.5fr);
+  gap: 8px 14px;
+  align-items: center;
+}
+
+.rp-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 4px 10px 8px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rp-row {
+  width: 100%;
+  margin: 0;
+  padding: 10px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rp-row:hover,
+.rp-row:focus-visible {
+  background: var(--band);
+}
+
+.rp-row:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.rp-who {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.rp-why,
+.rp-opener {
+  min-width: 0;
+  color: var(--fg);
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+
+.rp-why {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--muted);
+}
+
+.rp-opener {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.rp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+@container (max-width: 680px) {
+  .rp-head,
+  .rp-row {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+
+  .rp-head span:nth-child(n + 3),
+  .rp-chips,
+  .rp-opener {
+    grid-column: 1 / -1;
+  }
+}

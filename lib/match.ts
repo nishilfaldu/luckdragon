@@ -150,6 +150,29 @@ export type PersonMatch = {
   role: string;
   score: number;
   shared: SharedGround[];
+  /** Newest dated item tied to the overlap, or their newest item overall. */
+  whyNow: WhyNow | null;
+};
+
+export type WhyNow = {
+  nodeId: string;
+  type: string;
+  label: string;
+  date: string;
+  sharedLabel?: string;
+  url?: string;
+};
+
+export type RoomPlanRow = {
+  slug: string;
+  name: string;
+  headline: string;
+  avatar_url: string;
+  role: string;
+  score: number;
+  shared: SharedGround[];
+  whyNow: WhyNow | null;
+  opener: string;
 };
 
 type Signal = {
@@ -224,7 +247,8 @@ export function normalizeLabel(value: string): string {
 }
 
 async function compute(viewerSlug: string, candidates: string[] | undefined): Promise<PersonMatch[]> {
-  const graphs = await listPersonGraphs();
+  // Fixture graphs (demo-*) are for development only.
+  const graphs = (await listPersonGraphs()).filter((name) => !name.startsWith("person:demo-"));
   const slugs = graphs.map(slugOf).filter((slug): slug is string => slug !== null);
   if (!slugs.includes(viewerSlug)) return [];
 
@@ -244,7 +268,7 @@ async function compute(viewerSlug: string, candidates: string[] | undefined): Pr
   }
   const total = profiles.length;
 
-  const ranked: Array<PersonMatch & { sharedCount: number }> = [];
+  const ranked: Array<Omit<PersonMatch, "whyNow"> & { sharedCount: number }> = [];
   for (const other of profiles) {
     if (other.slug === viewer.slug) continue;
     const found = overlap(viewer, other, df, total);
@@ -269,7 +293,7 @@ async function compute(viewerSlug: string, candidates: string[] | undefined): Pr
   }
 
   ranked.sort((a, b) => b.score - a.score || b.sharedCount - a.sharedCount || a.name.localeCompare(b.name));
-  return ranked.map((match) => ({
+  const ordered = ranked.map((match) => ({
     slug: match.slug,
     name: match.name,
     headline: match.headline,
@@ -278,6 +302,20 @@ async function compute(viewerSlug: string, candidates: string[] | undefined): Pr
     score: match.score,
     shared: match.shared,
   }));
+  return mapPool(ordered, CONCURRENCY, async (match) => ({
+    ...match,
+    whyNow: await whyNowFor(match.slug, match.shared),
+  }));
+}
+
+/**
+ * Top matches plus a one-sentence opener. The opener names their why-now item
+ * and, when one exists, the viewer's newest item on that same shared label.
+ */
+export async function planFor(viewerSlug: string, limit: number): Promise<RoomPlanRow[]> {
+  const matches = await matchesFor(viewerSlug);
+  const slice = matches.slice(0, Math.max(0, limit));
+  return mapPool(slice, CONCURRENCY, (match) => planRow(viewerSlug, match));
 }
 
 type ScoredShare = SharedGround & { contribution: number };
@@ -508,9 +546,8 @@ function slugOf(graph: string): string | null {
 }
 
 function cacheKey(viewer: string, candidates: string[] | undefined): string {
-  if (!candidates) return viewer;
-  const list = candidates.map((slug) => slug.trim()).filter(Boolean).sort();
-  return `${viewer}::${list.join(",")}`;
+  const list = candidates?.map((slug) => slug.trim()).filter(Boolean).sort().join(",") ?? "";
+  return `why2:${viewer}::${list}`;
 }
 
 function cache(): Map<string, CacheEntry> {
@@ -532,6 +569,188 @@ function text(value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   if (typeof value === "bigint") return value.toString();
   return "";
+}
+
+/**
+ * Date props on ingested graphs: Post.posted_at, Video/Article.published_at, Repo.pushed_at.
+ * `date` is rarely stored. AUTHORED.at copies the item date and covers nodes that only have that.
+ */
+const DATED = `coalesce(
+  CASE WHEN i.posted_at <> '' THEN i.posted_at END,
+  CASE WHEN i.published_at <> '' THEN i.published_at END,
+  CASE WHEN i.pushed_at <> '' THEN i.pushed_at END,
+  CASE WHEN i.date <> '' THEN i.date END,
+  CASE WHEN a.at <> '' THEN a.at END
+)`;
+
+const CONTENT = "(i:Post OR i:Video OR i:Repo OR i:Article OR i:Package)";
+
+const CONNECTED_ITEM = `
+MATCH (i)
+WHERE ${CONTENT}
+OPTIONAL MATCH (i)-[:ABOUT|USES]->(t)
+WHERE t.id IN $ids OR toLower(coalesce(t.label, t.name, '')) IN $labels
+WITH i, head(collect(coalesce(t.label, t.name))) AS via
+WHERE (via IS NOT NULL AND via <> '')
+   OR toLower(coalesce(i.language, '')) IN $labels
+   OR toLower(coalesce(i.label, '')) IN $labels
+   OR toLower(coalesce(i.name, '')) IN $labels
+OPTIONAL MATCH (:Person)-[a:AUTHORED]->(i)
+WITH i, via, ${DATED} AS dated
+WHERE dated IS NOT NULL AND dated <> ''
+RETURN i.id AS nodeId, labels(i)[0] AS type, coalesce(i.label, i.name, i.title, '') AS label,
+  dated AS date,
+  CASE
+    WHEN via IS NOT NULL AND via <> '' THEN via
+    WHEN toLower(coalesce(i.language, '')) IN $labels THEN coalesce(i.language, '')
+    ELSE coalesce(i.label, i.name, '')
+  END AS sharedLabel,
+  coalesce(i.url, i.source_url, '') AS url
+ORDER BY dated DESC
+LIMIT 1`;
+
+const LATEST_ITEM = `
+MATCH (i)
+WHERE ${CONTENT}
+OPTIONAL MATCH (:Person)-[a:AUTHORED]->(i)
+WITH i, ${DATED} AS dated
+WHERE dated IS NOT NULL AND dated <> ''
+RETURN i.id AS nodeId, labels(i)[0] AS type, coalesce(i.label, i.name, i.title, '') AS label,
+  dated AS date, coalesce(i.url, i.source_url, '') AS url
+ORDER BY dated DESC
+LIMIT 1`;
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+async function planRow(viewerSlug: string, match: PersonMatch): Promise<RoomPlanRow> {
+  const shared = chipsFor(match);
+  const focus = focusShares(match);
+  const viewerItem = focus.length > 0 ? await connectedItem(viewerSlug, focus) : null;
+  return {
+    slug: match.slug,
+    name: match.name,
+    headline: match.headline,
+    avatar_url: match.avatar_url,
+    role: match.role,
+    score: match.score,
+    shared,
+    whyNow: match.whyNow,
+    opener: openerFor(match.whyNow, viewerItem, shared),
+  };
+}
+
+/** Their newest item on a shared label, else their newest dated item. */
+async function whyNowFor(slug: string, shared: SharedGround[]): Promise<WhyNow | null> {
+  try {
+    const connected = await connectedItem(slug, shared);
+    if (connected) return connected;
+    const latest = await roQuery(slug, LATEST_ITEM);
+    return readWhy(latest.data[0], false);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "query failed";
+    if (!/does not exist/i.test(message)) console.error(`why-now: skip ${slug}: ${message}`);
+    return null;
+  }
+}
+
+/** Newest Post, Video, Repo, Article, or Package tied to these labels. No overall fallback. */
+async function connectedItem(slug: string, shared: SharedGround[]): Promise<WhyNow | null> {
+  const ids = [...new Set(shared.flatMap((item) => [item.viewerNodeId, item.theirNodeId]).filter(Boolean))];
+  const labels = labelKeys(shared);
+  if (ids.length === 0 && labels.length === 0) return null;
+  try {
+    const result = await roQuery(slug, CONNECTED_ITEM, {
+      ids: ids.length > 0 ? ids : ["__none__"],
+      labels: labels.length > 0 ? labels : ["__none__"],
+    });
+    return readWhy(result.data[0], true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "query failed";
+    if (/does not exist/i.test(message)) return null;
+    throw error;
+  }
+}
+
+/** Keep the why-now label in the three chips when it is one of the scored shares. */
+function chipsFor(match: PersonMatch): SharedGround[] {
+  const label = match.whyNow?.sharedLabel;
+  const top = match.shared.slice(0, 3);
+  if (!label) return top;
+  const hit = match.shared.find((item) => sameLabel(item.label, label));
+  if (!hit || top.some((item) => sameLabel(item.label, label))) return top;
+  return [hit, ...top.filter((item) => item !== hit)].slice(0, 3);
+}
+
+function focusShares(match: PersonMatch): SharedGround[] {
+  const label = match.whyNow?.sharedLabel;
+  if (!label) return match.shared.slice(0, 3);
+  const hit = match.shared.filter((item) => sameLabel(item.label, label));
+  if (hit.length > 0) return hit;
+  return [{ type: "Topic", label, viewerNodeId: "", theirNodeId: "" }];
+}
+
+function openerFor(why: WhyNow | null, viewerItem: WhyNow | null, shared: SharedGround[]): string {
+  if (!why) {
+    const labels = shared.slice(0, 2).map((item) => item.label).filter(Boolean);
+    if (labels.length === 0) return "";
+    return labels.length === 1 ? `You share ${labels[0]}.` : `You share ${labels[0]} and ${labels[1]}.`;
+  }
+  const type = why.type.toLowerCase();
+  const subject = clip(why.sharedLabel || why.label, 72);
+  const lead = `Saw your ${type} on ${subject} (${formatMatchDay(why.date)})`;
+  if (!viewerItem?.label) return `${lead}.`;
+  return `${lead}, I've been working on ${clip(viewerItem.label, 72)}.`;
+}
+
+function labelKeys(shared: SharedGround[]): string[] {
+  const keys = new Set<string>();
+  for (const item of shared) {
+    const raw = item.label.toLowerCase().trim();
+    if (raw) keys.add(raw);
+    const norm = normalizeLabel(item.label);
+    if (norm) keys.add(norm);
+  }
+  return [...keys];
+}
+
+function sameLabel(left: string, right: string): boolean {
+  const a = normalizeLabel(left);
+  const b = normalizeLabel(right);
+  if (a && b && a === b) return true;
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+function readWhy(row: Record<string, unknown> | undefined, withShared: boolean): WhyNow | null {
+  if (!row) return null;
+  const nodeId = text(row.nodeId);
+  const type = text(row.type);
+  const date = text(row.date);
+  if (!nodeId || !type || !date) return null;
+  const why: WhyNow = {
+    nodeId,
+    type,
+    label: text(row.label) || type,
+    date,
+  };
+  const sharedLabel = withShared ? text(row.sharedLabel) : "";
+  const url = text(row.url);
+  if (sharedLabel) why.sharedLabel = sharedLabel;
+  if (url) why.url = url;
+  return why;
+}
+
+function formatMatchDay(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (!match) return value.trim();
+  const month = MONTHS[Number(match[2]) - 1];
+  if (!month) return value.trim();
+  return `${month} ${Number(match[3])}`;
+}
+
+function clip(value: string, max: number): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1).trimEnd()}…`;
 }
 
 async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {

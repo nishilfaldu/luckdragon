@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { PersonRow } from "@/lib/types";
-import { hostname, urlKey } from "@/lib/ingest/items";
+import { hostname, urlKey, type RawItem } from "@/lib/ingest/items";
+import { linkedInVanity, nameMatchesVanity, updatePersonIdentity } from "@/lib/people";
 
 export type MatchedVia = "luma" | "search" | "agent";
 
@@ -139,6 +140,51 @@ export function handleFromUrl(url: string): string {
   } catch {
     return "";
   }
+}
+
+const PERSON_WORD = /^[\p{L}][\p{L}'.-]*$/u;
+
+/**
+ * Name and headline from a LinkedIn profile item (the adapter's profile record:
+ * title is the name, the first line of text is the headline).
+ * Call this with the linkedin source items before the graph is seeded.
+ */
+export function linkedInIdentity(items: RawItem[]): { name: string; headline: string } | null {
+  const profile = items.find((item) => item.source === "linkedin" && item.kind === "profile" && item.title?.trim());
+  const name = profile?.title?.trim() ?? "";
+  if (!looksLikePersonName(name)) return null;
+  const headline =
+    (profile?.text ?? "")
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line && line.toLowerCase() !== name.toLowerCase()) ?? "";
+  return { name, headline: headline.slice(0, 240) };
+}
+
+/**
+ * When the CSV name is still the LinkedIn slug, replace it (and an empty headline)
+ * from the profile item. Mutates `person` so a later seed uses the real name.
+ * No-op unless the current name was derived from the /in/ slug.
+ */
+export async function applyLinkedInItems(person: PersonRow, items: RawItem[]): Promise<PersonRow> {
+  const vanity = linkedInVanity(person.linkedin);
+  if (!vanity || !nameMatchesVanity(person.name, vanity)) return person;
+  const identity = linkedInIdentity(items);
+  if (!identity) return person;
+  const saved = await updatePersonIdentity(person.slug, {
+    name: identity.name,
+    headline: identity.headline || person.headline,
+  });
+  if (!saved) return person;
+  person.name = saved.name;
+  person.headline = saved.headline;
+  return person;
+}
+
+function looksLikePersonName(name: string): boolean {
+  const words = name.replace(/,/g, " ").split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 6) return false;
+  return words.every((word) => PERSON_WORD.test(word));
 }
 
 function extraLinks(profile: LumaProfile): string[] {

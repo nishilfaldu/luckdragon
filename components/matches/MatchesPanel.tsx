@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/shell/Avatar";
 import { NODE_COLOR_VAR, type NodeType } from "@/lib/types";
-import styles from "./matches.module.css";
 
 type Facet = "Organization" | "Skill" | "Topic" | "Location";
 
@@ -14,6 +13,15 @@ type SharedGround = {
   theirNodeId: string;
 };
 
+type WhyNow = {
+  nodeId: string;
+  type: string;
+  label: string;
+  date: string;
+  sharedLabel?: string;
+  url?: string;
+};
+
 type PersonMatch = {
   slug: string;
   name: string;
@@ -22,6 +30,7 @@ type PersonMatch = {
   role: string;
   score: number;
   shared: SharedGround[];
+  whyNow?: WhyNow | null;
 };
 
 const CHIP_COUNT = 3;
@@ -106,7 +115,7 @@ export function MatchesPanel({
   const top = matches[0]?.score || 1;
 
   return (
-    <section className={styles.panel} aria-label="Best matches for you" data-matches={status}>
+    <section className="mp-panel" aria-label="Best matches for you" data-matches={status}>
       <p className="block-label">Best matches for you</p>
       {!viewer ? <p className="pane-copy">Pick who you are to see matches.</p> : null}
       {viewer && status === "loading" ? <p className="pane-copy">Looking for common ground…</p> : null}
@@ -132,8 +141,8 @@ export function MatchesPanel({
               <span className="meta">
                 <span className="topline">
                   <span className="name">{match.name}</span>
-                  <span className={styles.bar} title={`Score ${match.score}`}>
-                    <span className={styles.fill} style={{ width: `${width}%` }} />
+                  <span className="mp-bar" title={`Score ${match.score}`}>
+                    <span className="mp-fill" style={{ width: `${width}%` }} />
                   </span>
                 </span>
                 {chips.length > 0 ? (
@@ -158,6 +167,7 @@ export function MatchesPanel({
                     ))}
                   </span>
                 ) : null}
+                {match.whyNow ? <WhyNowLine item={match.whyNow} /> : null}
               </span>
             </button>
           </div>
@@ -167,10 +177,30 @@ export function MatchesPanel({
   );
 }
 
+function WhyNowLine({ item }: { item: WhyNow }) {
+  const line = `Why now · ${formatDay(item.date)} · ${item.label}`;
+  return (
+    <span className="mp-why" title={line}>
+      {line}
+    </span>
+  );
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatDay(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (!match) return value.trim();
+  const month = MONTHS[Number(match[2]) - 1];
+  if (!month) return value.trim();
+  return `${month} ${Number(match[3])}`;
+}
+
 function ariaLabel(match: PersonMatch, chips: SharedGround[]): string {
   const shared = chips.map((item) => item.label).join(", ");
   const detail = shared ? `, shares ${shared}` : "";
-  return `${match.name}, match score ${match.score.toFixed(1)}${detail}`;
+  const why = match.whyNow ? `, why now ${formatDay(match.whyNow.date)}, ${match.whyNow.label}` : "";
+  return `${match.name}, match score ${match.score.toFixed(1)}${detail}${why}`;
 }
 
 function chipStyle(type: Facet): { color: string; background: string; maxWidth: string } {

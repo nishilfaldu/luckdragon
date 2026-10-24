@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { NODE_COLOR_VAR, NODE_TYPES, type GraphNode, type NodeType } from "@/lib/types";
 import { ForceGraph } from "./ForceGraph";
 import { findNode, type Citation, type FocusTarget, type GraphState, type PersonListItem } from "./model";
+import { RoomPlan } from "@/components/plan/RoomPlan";
 import { SourcesPanel } from "@/components/sources/SourcesPanel";
 import { NodeCard } from "./NodeCard";
 
@@ -18,6 +19,7 @@ export function GraphPane({
   onFocus,
   onAsk,
   onRetry,
+  onSelect,
 }: {
   viewer: PersonListItem | null;
   person: PersonListItem | null;
@@ -29,6 +31,7 @@ export function GraphPane({
   onFocus: (focus: FocusTarget | null) => void;
   onAsk: (node: GraphNode) => void;
   onRetry: (slug: string) => void;
+  onSelect: (slug: string) => void;
 }) {
   const compare = Boolean(viewer && person && viewer.slug !== person.slug);
   const types = useMemo(() => legendTypes(viewer, person, graphs, compare), [viewer, person, graphs, compare]);
@@ -36,12 +39,16 @@ export function GraphPane({
   return (
     <section className="pane pane-graph" aria-label="Graph" data-pane="graph">
       {!person ? (
-        <div className="center-note">
-          <div>
-            <p className="eyebrow">Graph</p>
-            <p className="pane-copy">Pick a person to see their graph.</p>
+        viewer ? (
+          <RoomPlan viewer={viewer.slug} onSelect={onSelect} />
+        ) : (
+          <div className="center-note">
+            <div>
+              <p className="eyebrow">Graph</p>
+              <p className="pane-copy">Pick a person to see their graph.</p>
+            </div>
           </div>
-        </div>
+        )
       ) : (
         <>
           <div className={compare ? "graph-stage compare" : "graph-stage"}>

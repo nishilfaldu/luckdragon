@@ -479,6 +479,7 @@ export function AppShell() {
           onFocus={setFocus}
           onAsk={ask}
           onRetry={loadGraph}
+          onSelect={selectPerson}
         />
         <ChatPane
           person={selected}

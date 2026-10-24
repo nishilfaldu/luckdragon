@@ -2,17 +2,19 @@ import { z } from "zod";
 import {
   accountFor,
   accountsFromPerson,
+  applyLinkedInItems,
   handleFromUrl,
   platformForUrl,
   type KnownAccount,
 } from "@/lib/ingest/accounts";
 import { hasBrightDataToken, organicLinks, scrape, serp } from "@/lib/ingest/brightdata/client";
 import { linkedinPeopleSearchInput, xDiscoverByUsername } from "@/lib/ingest/brightdata/datasets";
-import { cachedRaw } from "@/lib/ingest/cache";
+import { cachedRaw, readRawCache } from "@/lib/ingest/cache";
 import { urlKey, type RawItem } from "@/lib/ingest/items";
 import { structured, webSearchText } from "@/lib/ingest/openai";
 import { mapPool } from "@/lib/ingest/pool";
 import { parseModelJson } from "@/lib/ingest/text";
+import { linkedInVanity, nameMatchesVanity } from "@/lib/people";
 import type { PersonRow } from "@/lib/types";
 
 const PLATFORMS = ["linkedin", "x", "github", "youtube", "instagram", "threads", "bluesky", "reddit", "website"] as const;
@@ -50,6 +52,7 @@ export async function resolveAccounts(
   hint: string,
   fresh: boolean,
 ): Promise<KnownAccount[]> {
+  await adoptLinkedInName(person, fresh);
   const existing = accountsFromPerson(person);
   const missing = PLATFORMS.filter((platform) => !accountFor(existing, platform));
   if (missing.length === 0) return [];
@@ -192,6 +195,33 @@ async function pickMatches(person: PersonRow, hint: string, candidates: Candidat
     });
   }
   return matches;
+}
+
+/**
+ * A LinkedIn URL is stored under a slug-derived name. Load the profile once
+ * (the pipeline then reads that cache) and copy the real name onto the row
+ * before the other searches run.
+ */
+async function adoptLinkedInName(person: PersonRow, fresh: boolean): Promise<void> {
+  const vanity = linkedInVanity(person.linkedin);
+  if (!vanity || !nameMatchesVanity(person.name, vanity)) return;
+  try {
+    const cached = fresh ? null : readRawCache(person.slug, "linkedin");
+    const items = cached?.length ? cached : fresh ? [] : await fetchLinkedInItems(person);
+    if (items.length) await applyLinkedInItems(person, items);
+  } catch {
+    // The LinkedIn source still runs in the pipeline.
+  }
+}
+
+async function fetchLinkedInItems(person: PersonRow): Promise<RawItem[]> {
+  const { linkedin } = await import("@/lib/ingest/sources/linkedin");
+  return linkedin.run({
+    person,
+    accounts: accountsFromPerson(person),
+    fresh: false,
+    hint: person.headline,
+  });
 }
 
 function itemsToAccounts(items: RawItem[]): KnownAccount[] {

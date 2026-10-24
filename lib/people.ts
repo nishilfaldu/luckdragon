@@ -1,7 +1,7 @@
 import { parse } from "csv-parse/sync";
 import fs from "node:fs";
 import path from "node:path";
-import { listPersonGraphs, roQuery } from "@/lib/falkor";
+import { graphName, listPersonGraphs, query, roQuery } from "@/lib/falkor";
 import { isIngesting } from "@/lib/ingest/events";
 import type { PersonRow } from "@/lib/types";
 
@@ -155,6 +155,125 @@ export function uniqueSlug(base: string, taken: Set<string>): string {
   return `${base}-${n}`;
 }
 
+export const PERSON_INPUT_ERROR = "Enter a name, LinkedIn, or Luma URL.";
+
+const LUMA_URL = /^https?:\/\/([a-z0-9-]+\.)?luma\.com\//i;
+const NAME_WORD = /^[\p{L}][\p{L}'.-]*$/u;
+
+export type ClassifiedPerson =
+  | { kind: "luma"; url: string }
+  | { kind: "linkedin"; url: string; name: string }
+  | { kind: "website"; url: string; name: string }
+  | { kind: "name"; name: string; headline: string };
+
+/** A Luma URL, a LinkedIn /in/ URL, any other http URL, or a 2–6 word name. "Name, Company" keeps the company as a headline hint. */
+export function classifyPersonInput(raw: string): ClassifiedPerson | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const url = canonicalUrl(trimmed);
+  if (url) {
+    if (LUMA_URL.test(trimmed)) return { kind: "luma", url: trimmed };
+    const vanity = linkedInVanity(url);
+    if (vanity) {
+      const name = nameFromVanity(vanity);
+      if (!name) return null;
+      return { kind: "linkedin", url: `https://www.linkedin.com/in/${vanity}`, name };
+    }
+    const name = hostLabel(url);
+    if (!name) return null;
+    return { kind: "website", url, name };
+  }
+  return parseName(trimmed.replace(/\s+/g, " "));
+}
+
+/** Append a non-Luma row. The same LinkedIn URL, website, or name returns the row already in the CSV. */
+export function addClassifiedPerson(parsed: Exclude<ClassifiedPerson, { kind: "luma" }>): PersonRow {
+  const people = fs.existsSync(peopleFile()) ? readPeople() : [];
+  const existing = findExisting(parsed, people);
+  if (existing) {
+    if (parsed.kind === "name" && parsed.headline && !existing.headline) {
+      const next = { ...existing, headline: parsed.headline };
+      writePersonRow(next);
+      return next;
+    }
+    return existing;
+  }
+  const taken = new Set(people.map((row) => row.slug));
+  const person: PersonRow = {
+    ...EMPTY,
+    slug: uniqueSlug(slugify(parsed.name), taken),
+    name: parsed.name,
+    headline: parsed.kind === "name" ? parsed.headline : "",
+    linkedin: parsed.kind === "linkedin" ? parsed.url : "",
+    website: parsed.kind === "website" ? parsed.url : "",
+  };
+  writePersonRow(person);
+  return person;
+}
+
+/** LinkedIn /in/ slug, or "" when the URL is not a person profile. */
+export function linkedInVanity(value: string): string {
+  if (!value.trim()) return "";
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return "";
+  }
+  const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+  if (host !== "linkedin.com" && !host.endsWith(".linkedin.com")) return "";
+  const parts = url.pathname.split("/").filter(Boolean);
+  const index = parts.findIndex((part) => part.toLowerCase() === "in");
+  const raw = index >= 0 ? parts[index + 1] : "";
+  if (!raw) return "";
+  let vanity = raw;
+  try {
+    vanity = decodeURIComponent(raw);
+  } catch {
+    return "";
+  }
+  vanity = vanity.trim().toLowerCase();
+  if (!/^[\p{L}\p{N}_-]{2,100}$/u.test(vanity)) return "";
+  return vanity;
+}
+
+/** Display name for a LinkedIn vanity slug: "kent-c-dodds" → "Kent C Dodds". */
+export function nameFromVanity(vanity: string): string {
+  const words = vanity
+    .replace(/[-_]+/g, " ")
+    .replace(/[^\p{L}\p{N} ]+/gu, " ")
+    .split(" ")
+    .filter(Boolean);
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
+}
+
+/** True when `name` is the placeholder derived from this LinkedIn slug. */
+export function nameMatchesVanity(name: string, vanity: string): boolean {
+  const fromSlug = nameFromVanity(vanity);
+  if (!fromSlug) return false;
+  return slugify(name) === slugify(fromSlug);
+}
+
+/** Replace the CSV name and headline, and the person_root label when that graph already exists. The slug stays put. */
+export async function updatePersonIdentity(
+  slug: string,
+  fields: { name?: string; headline?: string },
+): Promise<PersonRow | undefined> {
+  const current = getPerson(slug);
+  if (!current) return undefined;
+  const name = fields.name?.trim() || current.name;
+  const headline = fields.headline?.trim() || current.headline;
+  if (name === current.name && headline === current.headline) return current;
+  const next = { ...current, name, headline };
+  writePersonRow(next);
+  try {
+    await syncRootIdentity(next.slug, next.name, next.headline);
+  } catch {
+    // The CSV row is the source for the next seed. A missing graph is not a failed rename.
+  }
+  return next;
+}
+
 function toPerson(row: Record<string, string>): PersonRow {
   const person = { ...EMPTY, slug: "", name: "" };
   for (const column of COLUMNS) person[column] = (row[column] ?? "").trim();
@@ -270,6 +389,99 @@ function linkMap(value: unknown): Record<string, string> {
   const links: Record<string, string> = {};
   for (const field of LINK_FIELDS) links[field] = textProp(record, field);
   return links;
+}
+
+function parseName(input: string): ClassifiedPerson | null {
+  const comma = input.indexOf(",");
+  const name = (comma >= 0 ? input.slice(0, comma) : input).trim();
+  const headline = comma >= 0 ? input.slice(comma + 1).trim() : "";
+  const words = name.split(" ").filter(Boolean);
+  if (words.length < 2 || words.length > 6) return null;
+  if (!words.every((word) => NAME_WORD.test(word))) return null;
+  if (headline && !/[\p{L}\p{N}]/u.test(headline)) return null;
+  return { kind: "name", name, headline: headline.slice(0, 240) };
+}
+
+function findExisting(
+  parsed: Exclude<ClassifiedPerson, { kind: "luma" }>,
+  people: PersonRow[],
+): PersonRow | undefined {
+  if (parsed.kind === "linkedin") {
+    const vanity = linkedInVanity(parsed.url);
+    return people.find((row) => linkedInVanity(row.linkedin) === vanity);
+  }
+  if (parsed.kind === "website") {
+    return people.find((row) => canonicalUrl(row.website) === parsed.url);
+  }
+  return people.find((row) => row.name.trim().toLowerCase() === parsed.name.toLowerCase());
+}
+
+/** Insert or replace one CSV line. Other lines are left as they are. */
+function writePersonRow(person: PersonRow): void {
+  const file = peopleFile();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const row = compact(person);
+  const line = COLUMNS.map((column) => csvEscape(row[column] ?? "")).join(",");
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(file, `${COLUMNS.join(",")}\n${line}\n`);
+    return;
+  }
+  const text = fs.readFileSync(file, "utf8");
+  const newline = text.includes("\r\n") ? "\r\n" : "\n";
+  const parts = text.split(/\r?\n/);
+  const lastEmpty = parts.length > 0 && parts[parts.length - 1] === "";
+  const body = lastEmpty ? parts.slice(0, -1) : parts;
+  const index = body.findIndex((entry, entryIndex) => entryIndex > 0 && csvSlug(entry) === row.slug);
+  if (index >= 0) body[index] = line;
+  else body.push(line);
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, `${body.join(newline)}${newline}`);
+  fs.renameSync(tmp, file);
+}
+
+function csvSlug(line: string): string {
+  if (line.startsWith("\"")) {
+    const end = line.indexOf("\"", 1);
+    return end > 1 ? line.slice(1, end).replace(/""/g, "\"") : "";
+  }
+  return line.split(",")[0] ?? "";
+}
+
+function canonicalUrl(value: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(value.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  url.username = "";
+  url.password = "";
+  url.hash = "";
+  for (const key of [...url.searchParams.keys()]) {
+    if (key.toLowerCase().startsWith("utm_")) url.searchParams.delete(key);
+  }
+  let text = url.toString();
+  if (text.endsWith("/")) text = text.slice(0, -1);
+  return text;
+}
+
+function hostLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, "");
+  } catch {
+    return "";
+  }
+}
+
+async function syncRootIdentity(slug: string, name: string, headline: string): Promise<void> {
+  const names = await listPersonGraphs();
+  if (!names.includes(graphName(slug))) return;
+  await query(slug, "MATCH (n {id: $id}) SET n.name = $name, n.label = $name, n.headline = $headline", {
+    id: "person_root",
+    name,
+    headline,
+  });
 }
 
 function countOf(row: Record<string, unknown> | undefined): number {

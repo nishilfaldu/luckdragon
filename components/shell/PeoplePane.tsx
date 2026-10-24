@@ -206,22 +206,30 @@ function IngestProgress({ run }: { run: IngestRun }) {
 
 function AddPerson({ onAdd }: { onAdd: (url: string) => Promise<void> }) {
   const [open, setOpen] = useState(false);
-  const [url, setUrl] = useState("");
+  const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function canAdd(input: string): boolean {
+    if (isHttpUrl(input)) return true;
+    const name = (input.split(",")[0] ?? "").trim().replace(/\s+/g, " ");
+    const words = name.split(" ").filter(Boolean);
+    if (words.length < 2 || words.length > 6) return false;
+    return words.every((word) => /^[\p{L}][\p{L}'.-]*$/u.test(word));
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const value = url.trim();
-    if (!isHttpUrl(value)) {
-      setError("Paste a full Luma URL.");
+    const next = value.trim();
+    if (!canAdd(next)) {
+      setError("Enter a name, LinkedIn, or Luma URL.");
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      await onAdd(value);
-      setUrl("");
+      await onAdd(next);
+      setValue("");
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work.");
@@ -242,10 +250,10 @@ function AddPerson({ onAdd }: { onAdd: (url: string) => Promise<void> }) {
     <form className="add-form" onSubmit={(event) => void submit(event)}>
       <input
         className="search"
-        value={url}
-        onChange={(event) => setUrl(event.target.value)}
-        placeholder="https://luma.com/user/…"
-        aria-label="Luma profile URL"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder="Name, LinkedIn, or Luma URL"
+        aria-label="Name, LinkedIn, or Luma URL"
         autoFocus
         onKeyDown={(event) => {
           if (event.key === "Escape") {

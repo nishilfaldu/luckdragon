@@ -13,11 +13,13 @@ You walk into a room of strangers with name tags. What they have shipped, talked
 - **Research agent:** an agent with Bright Data search and page tools finds talks, podcasts, and articles the fixed sources missed.
 - **Live ingest progress:** each source lights up (fetching → extracting → done) as the person's graph grows on screen.
 - **Where this graph came from:** a per-person breakdown of which Bright Data product produced which part of the graph.
+- **Add anyone by name:** type a name, a LinkedIn URL, or a Luma URL; identity resolution finds their accounts and ingest builds the graph live.
 - **Every node is cited:** each fact keeps its source URL, fetch time, confidence, and how the account was matched.
 
 **Exploring a person**
 - **Side-by-side graphs:** your graph and theirs next to each other; click any node for its card and source.
 - **The Brief:** Who, Lately, Common ground, and a Best opener, written from both graphs, with every line citing nodes.
+- **How you connect:** the Brief shows the shortest graph path to them and the best intro path through a mutual person, straight from FalkorDB.
 - **Best opener, scored:** the agent weighs three openers, recommends one with a score and the reason, and keeps two alternates.
 - **Citation chips:** hover a chip to light up that node in either graph; click to center on it and open its card.
 - **Ask anything:** follow-up questions run read-only Cypher against FalkorDB.
@@ -25,7 +27,15 @@ You walk into a room of strangers with name tags. What they have shipped, talked
 - **Your own Brief:** select yourself to see what the room sees about you and what people may ask you about.
 
 **The room**
-- **Best matches for you:** people ranked by shared topics, skills, employers, and places across graphs, with the shared items as chips.
+- **Room graph:** a shared FalkorDB graph projected from every person graph (people → normalized topics, skills, orgs, places → recent items) so matching is multi-hop Cypher.
+- **Best matches for you:** people ranked by shared topics, skills, employers, and places, with the shared items as chips and a score bar.
+- **Why now:** each match shows their newest post, talk, or repo about something you share (you → topic ← their item ← them).
+- **Your plan for the room:** before you pick anyone, a list of who to meet, why now, what you share, and a one-line opener.
+- **Intro paths:** paths through a mutual person (you → topic ← mutual → topic ← them) for people you share nothing with directly.
+
+**Agents**
+- **MCP server:** `/api/mcp` exposes list_people, best_matches, brief, ask, run_cypher, and graph_summary to Claude, Cursor, or any MCP client.
+- **Shared memory:** the chat agent, the MCP tools, and the UI all read the same room graph and person graphs.
 
 **Trust and safety**
 - **Protected traits toggle:** on by default, the Brief never uses health, religion, politics, ethnicity, orientation, family, or age; flipping it rewrites the Brief.
@@ -300,3 +310,53 @@ data/people.csv                 gitignored
 data/luma/                      gitignored saved Luma profiles
 data/raw/<slug>/                gitignored fetch cache
 ```
+
+## Use it from an agent
+
+Luckdragon is an MCP server over the same graphs as the app. An agent can list the room, rank who shares the most with a viewer, summarize a graph, run one read-only Cypher query, or ask for a Brief. `brief` and `ask` return the chat text with citations (`[[slug:nodeId]]`). These tools do not write graphs.
+
+POST one JSON-RPC message to the endpoint. The response is `application/json` (`initialize`, `tools/list`, `tools/call`, and `ping`). A notification such as `notifications/initialized` gets `202` and an empty body. GET returns `405` (there is no server-push stream).
+
+- Local: `http://localhost:3000/api/mcp`
+- Deployed: `https://luckdragon.vercel.app/api/mcp`
+
+The app has to be running (`npm run dev`, or the Vercel deployment) and FalkorDB has to be the instance `FALKORDB_URL` points at. `brief` and `ask` use `OPENAI_MODEL`.
+
+### Claude Code
+
+```bash
+claude mcp add --transport http luckdragon http://localhost:3000/api/mcp
+```
+
+For the deployed app, use the same command with `https://luckdragon.vercel.app/api/mcp`.
+
+### Cursor
+
+Put this in `.cursor/mcp.json` (this project) or `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "luckdragon": {
+      "url": "http://localhost:3000/api/mcp"
+    }
+  }
+}
+```
+
+Use `https://luckdragon.vercel.app/api/mcp` as `url` to talk to the deployment.
+
+### Tools
+
+| Tool | Arguments | Returns |
+|---|---|---|
+| `list_people` | none | slug, name, headline, role, nodeCount |
+| `best_matches` | `viewer_slug`, optional `limit` (1–30) | ranked overlap with the viewer |
+| `brief` | `viewer_slug`, `person_slug` | the automatic Brief, with citations |
+| `ask` | `viewer_slug`, `person_slug`, `question` | one cited answer |
+| `run_cypher` | `person_slug`, `query` | rows from a read-only query |
+| `graph_summary` | `person_slug` | counts by node type, and the 10 newest dated nodes |
+
+A failed tool comes back as a tool result with `isError: true`, not an HTTP 500.
+
+If `LUCKDRAGON_PASSCODE` is set, `proxy.ts` answers every `/api` route with 401 until the access cookie is present. An MCP client does not send that cookie, so `/api/mcp` stays closed until that gate allows it.
