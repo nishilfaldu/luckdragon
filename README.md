@@ -6,44 +6,31 @@ You walk into a room of strangers with name tags. What they have shipped, talked
 
 ## Features
 
-**People and data**
-- **One graph per attendee:** every person gets their own FalkorDB graph (`person:<slug>`): accounts, roles, posts, talks, repos, topics, skills, places.
-- **Live web ingest:** Bright Data Web Scraper API (LinkedIn, X, YouTube, GitHub, Instagram, Threads, Bluesky, Reddit, Crunchbase, npm/PyPI), SERP API, and Web Unlocker build each graph from public pages.
-- **Identity resolution:** missing socials are found by search and matched with a confidence score; anything under 0.5 is dropped.
-- **Research agent:** an agent with Bright Data search and page tools finds talks, podcasts, and articles the fixed sources missed.
-- **Live ingest progress:** each source lights up (fetching → extracting → done) as the person's graph grows on screen.
-- **Where this graph came from:** a per-person breakdown of which Bright Data product produced which part of the graph.
-- **Add anyone by name:** type a name, a LinkedIn URL, or a Luma URL; identity resolution finds their accounts and ingest builds the graph live.
-- **Every node is cited:** each fact keeps its source URL, fetch time, confidence, and how the account was matched.
+*Before you walk up to someone here, luckdragon tells you who to meet, why now, what you share, and what to say, and shows you the evidence.* Blue is you, amber is them, everywhere.
 
-**Exploring a person**
-- **Side-by-side graphs:** your graph and theirs next to each other; click any node for its card and source.
-- **The Brief:** Who, Lately, Common ground, and a Best opener, written from both graphs, with every line citing nodes.
-- **How you connect:** the Brief shows the shortest graph path to them and the best intro path through a mutual person, straight from FalkorDB.
-- **Best opener, scored:** the agent weighs three openers, recommends one with a score and the reason, and keeps two alternates.
-- **Citation chips:** hover a chip to light up that node in either graph; click to center on it and open its card.
-- **Ask anything:** follow-up questions run read-only Cypher against FalkorDB.
-- **How I know this:** every answer shows the exact Cypher it ran, the row count, and the time.
-- **Your own Brief:** select yourself to see what the room sees about you and what people may ask you about.
+**1. Who to meet** (the home screen)
+- **Who to meet:** people ranked by what you have in common in public work, each with *why now* (their newest post, talk, or repo on something you share), *you share*, and a line to *say*.
+- **How it works:** a three-step explainer beside the list for first-time visitors.
+- **People:** a plain directory with search; "+ Add person" takes a name, LinkedIn URL, or Luma URL and builds their graph live.
 
-**The room**
-- **Room graph:** a shared FalkorDB graph projected from every person graph (people → normalized topics, skills, orgs, places → recent items) so matching is multi-hop Cypher.
-- **Best matches for you:** people ranked by shared topics, skills, employers, and places, with the shared items as chips and a score bar.
-- **Why now:** each match shows their newest post, talk, or repo about something you share (you → topic ← their item ← them).
-- **Your plan for the room:** before you pick anyone, a list of who to meet, why now, what you share, and a one-line opener.
-- **Intro paths:** paths through a mutual person (you → topic ← mutual → topic ← them) for people you share nothing with directly.
+**2. About this person** (the person page)
+- **The Brief:** Who, Lately, Common ground, How you connect, and a Best opener weighed against two alternates and scored with its reason.
+- **Follow-ups:** ask anything about them; the agent answers from their graph with read-only Cypher.
+- **How you connect:** the path FalkorDB found, drawn: direct (you → shared topic → them) and intro paths through a mutual person, plus what you share and why now.
+- **Your own Brief:** select yourself to see what the room sees about you.
 
-**Agents**
-- **MCP server:** `/api/mcp` exposes list_people, best_matches, brief, ask, run_cypher, and graph_summary to Claude, Cursor, or any MCP client.
-- **Shared memory:** the chat agent, the MCP tools, and the UI all read the same room graph and person graphs.
+**3. Why you can trust it** (the evidence)
+- **Citations on every line:** each claim ends with chips for the facts it uses; hover to see which graph they're in.
+- **How I know this:** a one-line trace under each answer opens the exact graph queries: what each looked for, the hop pattern, rows, time, and the Cypher.
+- **Full graphs:** both people's graphs side by side, with a card for every fact (source URL, date, confidence, how the account was matched).
+- **Data sources:** when each graph was fetched, which sources succeeded or failed, and which Bright Data product produced which facts.
+- **Protected traits:** on by default, graphs, matches, and answers leave out health, religion, politics, ethnicity, orientation, family, and age.
 
-**Trust and safety**
-- **Protected traits toggle:** on by default, the Brief never uses health, religion, politics, ethnicity, orientation, family, or age; flipping it rewrites the Brief.
-- **Read-only queries:** the agent's Cypher runs through `GRAPH.RO_QUERY`, and writes, `LOAD CSV`, and write procedures are rejected.
-- **No guessed pronouns:** the Brief uses first names or "they".
-
-**Deploy**
-- **Public read-only site:** https://luckdragon.vercel.app serves all graphs from FalkorDB Cloud; ingest runs on the presenter's laptop.
+**Under the hood**
+- **Live web data:** Bright Data Web Scraper API (LinkedIn, X, YouTube, GitHub, Instagram, Threads, Bluesky, Reddit, Crunchbase, npm/PyPI), SERP API, and Web Unlocker; each source fails on its own with a retry, and the rest are kept.
+- **One FalkorDB graph per person** (`person:<slug>`) plus a **room graph** projected from them, so who to meet, why now, and intro paths are multi-hop Cypher.
+- **MCP server:** `/api/mcp` gives Claude, Cursor, or any MCP client list_people, best_matches, brief, ask, run_cypher, and graph_summary.
+- **Live:** https://luckdragon.nishilfaldu.site (read-only; ingest runs on the presenter's laptop).
 
 ## How it works
 

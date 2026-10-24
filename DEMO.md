@@ -1,63 +1,70 @@
 # luckdragon — stage card (3 min)
 
-Light theme, 125% zoom. Re-rank the judge before you go up. Counts were still moving.
+Light theme, full screen. Re-check the judges in WHO TO MEET before you go up. Counts move.
 
 ## 15 min before
 
-- `docker compose up -d` and `docker compose ps`. FalkorDB on **6379**. Do not project **:3001** (FalkorDB's own UI). `npm run dev` → **:3000**. Full screen (Ctrl-Cmd-F).
-- Judge = highest `nodeCount` among `role=judge` and `status=ready`. Skip guests, even if their graphs are bigger.
+- `docker compose up -d`. FalkorDB on **6379**. `npm run dev` → **:3000**. Do not open **:3001** (FalkorDB's own UI). Full screen (Ctrl-Cmd-F). Click the sun (tooltip **Light**).
+- After any ingest, if matches, the plan, or **How I know this** look stale: `npm run room:build`. Not on stage.
+- Judge = highest `nodeCount` among `role=judge` and `status=ready`.
 
 ```bash
 curl -s localhost:3000/api/people | python3 -c 'import json,sys; p=json.load(sys.stdin)["people"]; j=sorted((x for x in p if x["role"]=="judge"), key=lambda x:-x["nodeCount"])[0]; print("JUDGE", j["name"], j["nodeCount"]); print("NONE", ", ".join(x["name"] for x in p if x["status"]=="none"))'
 ```
 
-  Last check: **Riken Shah, 169.** Then satyam singh 130, Schezeen Fazulbhoy 115. Nishil was ready at 140. Say whatever name the command prints.
-- Ingest target: hollow dot plus an **Ingest** button. **Lee Robinson**, else **Kunal Kushwaha**. Empty `NONE` → skip that beat.
-- Zoom 125% (two steps up from 100). Drop to 110% if the composer is cut off. Click the **sun** (tooltip Light). System on this laptop is dark.
-- Ignore the round **N**. Overlay: Escape. Couldn't load: **Reload**.
-- Backup tab: Light, Nishil, search `Riken`, wait for **Who / Lately / Common ground / Openers**. Do not reload it. QuickTime video paused on frame one.
+  Prefer **Riken Shah** (last check **169 nodes**), else **Satyam Singh**. Say the name and the count on the row.
+- Header already reads **Protected traits dropped**. Leave it. Pick **I am Nishil Faldu**, then click **← Who to meet** (or reload) so nobody is selected: the middle is **WHO TO MEET**, the right is **HOW IT WORKS**. Three judges are in the list: **Schezeen Fazulbhoy** (why now: Oct 23 · Judging Patch the Conference Hackathon), **Satyam Singh**, **Riken Shah** (Oct 24 · Monorepos and complete context for coding agents).
+- Live add: a name you met today, else **Kent C. Dodds**. Backup, already open, do not reload: https://luckdragon.nishilfaldu.site (read-only: no **+ Add person**).
 
 ## Script
 
-Still on **Writing the brief…** at 1:20? Ask anyway.
+Still skeleton bars at 1:20? Ask anyway.
 
-**0:00.** "You walk into a room of strangers and a name tag. The useful stuff is already public. It's scattered across LinkedIn, GitHub, talks, and posts."
+**0:00.** "You walk into a room of strangers and a name tag. What they work on is already public, scattered across LinkedIn, X, GitHub, and talks."
 
-**0:18.** Header pill → search `Nishil` → **Nishil Faldu**. "I'll be myself. I am Nishil Faldu." He pins under **YOU** (green dot, node count).
+**0:12.** Read the right column, **HOW IT WORKS**, in one breath: "Bright Data reads public work for everyone here, FalkorDB turns each person into a graph of facts and links the room, and every suggestion shows its evidence."
 
-**0:32.** Left **Search** → `Riken` → the **Judge** row → clear Search (**YOU** hides while the box doesn't match you). "Riken Shah. Biggest graph on the judging side." Panes: **You** and **Riken Shah**. Chat: **Writing the brief…**, then **Who**, **Lately**, **Common ground**, **Openers**. "Who he is, what he did lately, where we overlap, and three things I could say."
+**0:25.** Middle, **WHO TO MEET**. Point at **Schezeen Fazulbhoy · Judge**: "Why now: she posted yesterday that she's judging this hackathon. You share: Next.js, MCP, hackathons. And a line to say." Then click **Open brief ›** on **Riken Shah**.
 
-**1:05.** Hover an amber chip, then a blue one. Don't click (a click covers the graph). "Amber is his, blue is mine. Hovering lights that node." Tooltip says `Riken Shah's graph` or `Your graph`.
+**0:45.** Person page. Middle: **Riken Shah · Judge**, the **● You ● Them** legend, then the Brief: **Who**, **Lately**, **Common ground**, **How you connect**, **Best opener** (scored, e.g. 9/10, with the reason). Right: **How you connect**: **Direct** (You — shared topic — Riken), **Through Harrison** (an intro path via a mutual), **What you share**, **Why now**. "This is the path FalkorDB found between us, drawn."
 
-**1:20.** Click **Ask about them**, Enter, don't use the suggestion chips:
+**1:15.** Hover an amber citation chip. Under the Brief, click the quiet pill **⌁ N graph queries · N rows · N ms ›**. Dialog **How I know this**: **Shared topics, skills, employers, and places** (`you → facet ← them`), **Their newest item about something you share** (`you → facet ← their item ← them`), **Intro paths through a mutual person**, each with rows, ms, and the Cypher. "Every sentence cites a fact, every fact cites a web page, and every answer shows the Cypher FalkorDB ran." **Close**.
 
-`How many posts does he have since July, and what is the latest one? Run it as a query.`
+**1:45.** Composer **Ask a follow-up about Riken…**: type `What did Riken post this week about coding agents? Show the query.` Enter. Click the new pill: **A query the agent wrote for your question**, on **person:riken-shah**. **Close**.
 
-"The brief already had the graphs. This has to ask FalkorDB." Open **How I know this** (not on the brief): `run_cypher`, rows, milliseconds, the query. "Read-only, one graph, query stays up." If it's missing: `Count his nodes by label with Cypher.`
+**2:05.** Right column → **Show full graphs**. Both graphs, You and Riken. On Riken's graph click **Data sources**: "Fetched today at 1:23 PM · 8 of 8 sources OK", the per-source counts (LinkedIn, X, YouTube, Web search, Research agent), and the **Bright Data** badges. "LinkedIn, X, and Google come through Bright Data; when a source fails we retry once, skip it, and keep the rest." **Close**.
 
-**2:15.** Search `Lee` or `Kunal`. Click **Ingest**, not the name. The graph leaves Riken. Don't wait. "Wasn't built yet. LinkedIn, X, GitHub, YouTube go Fetching, then a count." Dot pulses amber. **Ingesting** on the row. A red line is one source.
+**2:25.** Left, **+ Add person**. Type the name you met, else `Kent C. Dodds`. **Add**. "They weren't in the room. Identity search finds their accounts, then each source lights up." Don't wait; the row shows progress.
 
-**2:40.** "One FalkorDB graph per person, from live public pages through Bright Data. The answer cites the node, and you can open the query."
+**2:40.** Header switch **Protected traits dropped** (on by default): "Graphs, matches, and briefs never use health, religion, politics, ethnicity, orientation, family, or age."
+
+**2:50.** "One graph per person plus a shared room graph in FalkorDB, built live from the web with Bright Data. Every answer shows its path. And `/api/mcp` lets Claude or Cursor query the room."
 
 ## FalkorDB
 
-Graph name `person:<slug>`. The agent passes the slug and does not put it in the Cypher. Chat is read-only. `CREATE`, `MERGE`, and `DELETE` are rejected. Eight seconds, 200 rows. Overlap is two graphs read by the model, not a join. You showed the query.
+One graph per person (`person:<slug>`) and a room graph projected from them (`npm run room:build`). Matches, why-now, and intro paths are multi-hop Cypher on that room graph.
+
+Chat reads with `GRAPH.RO_QUERY`. Writes are rejected. The Cypher, the row count, and the milliseconds are in the **How I know this** dialog.
 
 ## Bright Data
 
-Public pages, not a fixture. Scraper datasets (LinkedIn, X, YouTube, GitHub, and the rest), SERP when an account is missing, Web Unlocker when research opens a page. Left column is that pipeline. Raw JSON is cached. The last beat was it running live.
+Web Scraper API (LinkedIn, X, YouTube, GitHub, Instagram, Threads, Bluesky, Reddit, Crunchbase, npm/PyPI), SERP API, and Web Unlocker. Identity search uses SERP, LinkedIn people search, and X.
+
+On stage: **Show full graphs** → **Data sources** (fetched time, sources OK, the **Bright Data** badges) and the live ingest (sources lighting up).
 
 ## If they ask
 
-- **Privacy.** Public pages only. No contacts or private messages. One local graph per person. Every node has a source URL.
-- **Wrong person.** Luma links win. Search matches under 0.5 are dropped. Card shows **Matched via** (`luma`, `search`, `agent`) and **Confidence**. A miss stays in that graph.
-- **Cost.** Cheap model only. Research caps at 5 calls. ~20 items a source, last 12 months. Brief is one chat on stored graphs. Fetches are cached. No dollar-per-person number yet.
-- **Why separate graphs.** A bad match can't spread. Re-ingest merges one graph. No conference-wide join.
+- **Privacy.** Public pages only. No contacts or private messages. Header switch **Protected traits dropped** is on by default. The graph, Brief, matches, and plan skip health, religion, politics, ethnicity, orientation, family, and age. Every node has a **Source** link.
+- **Wrong person.** Luma links win. Search matches under 0.5 are dropped. The card shows **Matched via** (`luma`, `search`, `agent`) and **Confidence**. A miss stays in that person's graph.
+- **Cost.** Roughly 20–30 Bright Data requests per person (about 3 cents at pay-as-you-go; an estimate, not a bill). Research caps at 5 calls. About 20 items a source, last 12 months. The Brief is one chat on stored graphs. Fetches are cached.
+- **Why not one big graph?** A bad match stays in that person's graph, and re-ingest merges only that graph. The room graph is a projection, rebuilt from the person graphs.
 - **A thousand people.** Ingest ahead of time. The screen still opens one person. Same caps, plus 400 nodes in the prompt.
-- **Next.** A common-ground score, intro paths through mutuals, a feed of what the room shipped this week.
+- **Failures.** Each source fails alone: one retry on 5xx, slow scrapes fall back to async snapshots, then the source is skipped and the rest kept. **Data sources** shows what ran and when.
+- **Next.** A feed of what the room shipped this week.
 
 ## If it breaks
 
-- **Wi-Fi.** Graphs are local. Switch to the backup tab. Don't reload it. Chat and ingest need the network. Dead app: play the video.
-- **Slow brief.** After ~20s, talk over what streamed and ask. **Try again** once, then the backup tab.
-- **Ingest.** One red row is one source. Don't start a second person. Lee already green? Kunal. Nobody left? Point at Riken's chips: LinkedIn, X, GitHub, Website.
+- **Wi-Fi or a dead app.** Graphs are local. Chat and ingest need the network. Switch to https://luckdragon.nishilfaldu.site. Don't reload it. It is read-only: no **+ Add person**.
+- **Slow brief.** Talk over what streamed and ask. **Try again** once, then the public URL.
+- **Stale room.** Empty **WHO TO MEET** or an empty **How you connect**: run `npm run room:build` before going up. On stage, open **Show full graphs** and stay on the two graphs.
+- **Ingest.** One red row is one source. Don't add a second person. If add fails, go back to Riken and open **Data sources**.
