@@ -40,7 +40,7 @@ export function ChatPane({
     setDraftScope({ slug: personSlug, nonce: prefillNonce });
     setDraft(keepPrefill ? prefill.text : "");
   }
-  const scroller = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streaming = thread?.streaming ?? false;
   const messages = thread?.messages ?? EMPTY_MESSAGES;
@@ -62,12 +62,14 @@ export function ChatPane({
   }, [draft]);
 
   useEffect(() => {
-    const el = scroller.current;
-    if (!el) return;
+    const page = root.current?.closest(".w3-person");
+    if (!(page instanceof HTMLElement)) return;
     const brief = !messages.some((message) => message.role === "user");
-    const pinTop = brief && !streaming;
-    el.dataset.pin = pinTop ? "top" : "follow";
-    el.scrollTop = pinTop ? 0 : el.scrollHeight;
+    if (brief && !streaming) {
+      page.scrollTop = 0;
+      return;
+    }
+    root.current?.querySelector("form")?.scrollIntoView({ block: "nearest" });
   }, [messages, streaming]);
 
   function submit(event?: FormEvent) {
@@ -85,107 +87,94 @@ export function ChatPane({
     }
   }
 
-  if (!person) {
-    return (
-      <section className="pane pane-chat" aria-label="Chat" data-pane="chat">
-        <div className="center-note">
-          <div>
-            <p className="eyebrow">Chat</p>
-            <p className="pane-copy">Ask about the person you picked.</p>
-          </div>
-        </div>
-      </section>
-    );
-  }
+  if (!person) return null;
 
   const lastAssistant = [...messages].reverse().find((message) => message.role === "assistant");
   const failedBrief = Boolean(thread?.error && !streaming && !messages.some((message) => message.role === "user"));
   const personReady = graphs[person.slug]?.status === "ready";
   const viewerReady = viewer ? graphs[viewer.slug]?.status === "ready" : false;
+  const first = person.name.trim().split(/\s+/)[0] || "them";
 
   return (
-    <section className="pane pane-chat" aria-label="Chat" data-pane="chat">
-      <div className="chat-scroll" ref={scroller}>
-        <p className="eyebrow">{person.name}</p>
-        {!viewer ? <p className="pane-copy">Choose who you are to get a brief.</p> : null}
-        {viewer && !thread && (!personReady || !viewerReady) ? (
-          <p className="pane-copy">
-            {graphs[person.slug]?.status === "error" ? "This graph isn't ready yet." : "Waiting for the graph…"}
-          </p>
-        ) : null}
-        {viewer && !thread && personReady && viewerReady ? <BriefSkeleton label="Writing the brief…" /> : null}
-        <div className="thread">
-          {messages.map((message) => {
-            if (message.role === "user") {
-              return (
-                <div className="bubble" key={message.id}>
-                  {message.content}
-                </div>
-              );
-            }
-            const waiting = streaming && message.id === lastAssistant?.id && !message.content;
-            const brief = !messages.some((item) => item.role === "user");
+    <div className="w3-thread" ref={root} aria-label="Brief">
+      {!viewer ? <p className="pane-copy">Choose who you are to get a brief.</p> : null}
+      {viewer && !thread && (!personReady || !viewerReady) ? (
+        <p className="pane-copy">
+          {graphs[person.slug]?.status === "error" ? "Their facts aren't ready yet." : "Waiting for the facts…"}
+        </p>
+      ) : null}
+      {viewer && !thread && personReady && viewerReady ? <BriefSkeleton label="Writing the brief…" /> : null}
+      <div className="thread">
+        {messages.map((message) => {
+          if (message.role === "user") {
             return (
-              <div className="msg" key={message.id}>
-                {message.content ? (
-                  <Markdown
-                    text={message.content}
-                    cite={(slug, nodeId, key) => {
-                      const node = findNode(graphs[slug], nodeId);
-                      if (!node) return <span key={key}>{nodeId}</span>;
-                      const label = displayLabel(node.label);
-                      const tone = slug === viewer?.slug ? "you" : slug === person.slug ? "them" : "other";
-                      const on = activeCite?.slug === slug && activeCite.nodeId === nodeId;
-                      const who = slug === viewer?.slug ? "Your graph" : slug === person.slug ? `${person.name}'s graph` : slug;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          className={on ? `cite ${tone} on` : `cite ${tone}`}
-                          title={`${label} · ${who}`}
-                          data-cite={`${slug}:${nodeId}`}
-                          onMouseEnter={() => onCiteHover({ slug, nodeId })}
-                          onMouseLeave={() => onCiteHover(null)}
-                          onFocus={() => onCiteHover({ slug, nodeId })}
-                          onBlur={() => onCiteHover(null)}
-                          onClick={() => onCiteClick({ slug, nodeId })}
-                        >
-                          <span>{label}</span>
-                        </button>
-                      );
-                    }}
-                  />
-                ) : null}
-                {waiting ? <BriefSkeleton label={brief ? "Writing the brief…" : "Writing…"} /> : null}
-                {message.tools.length > 0 && !(streaming && message.id === lastAssistant?.id) ? (
-                  <TraceLine tools={message.tools} citedNodes={new Set(citationsIn(message.content).map((cite) => `${cite.slug}:${cite.nodeId}`)).size} />
-                ) : null}
-                {message.id === lastAssistant?.id && message.suggestions.length > 0 && !streaming ? (
-                  <div className="suggestions">
-                    {message.suggestions.map((item) => (
-                      <button key={item} type="button" className="pill line sm" onClick={() => onSend(item)}>
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
+              <div className="bubble" key={message.id}>
+                {message.content}
               </div>
             );
-          })}
-        </div>
-        {failedBrief ? (
-          <button type="button" className="text-btn" onClick={onRetry}>
-            Try again
-          </button>
-        ) : null}
+          }
+          const waiting = streaming && message.id === lastAssistant?.id && !message.content;
+          const brief = !messages.some((item) => item.role === "user");
+          return (
+            <div className="msg" key={message.id}>
+              {message.content ? (
+                <Markdown
+                  text={message.content}
+                  cite={(slug, nodeId, key) => {
+                    const node = findNode(graphs[slug], nodeId);
+                    if (!node) return <span key={key}>{nodeId}</span>;
+                    const label = displayLabel(node.label);
+                    const tone = slug === viewer?.slug ? "you" : slug === person.slug ? "them" : "other";
+                    const on = activeCite?.slug === slug && activeCite.nodeId === nodeId;
+                    const who = slug === viewer?.slug ? "Your graph" : slug === person.slug ? `${person.name}'s graph` : slug;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={on ? `cite ${tone} on` : `cite ${tone}`}
+                        title={`${label} · ${who}`}
+                        data-cite={`${slug}:${nodeId}`}
+                        onMouseEnter={() => onCiteHover({ slug, nodeId })}
+                        onMouseLeave={() => onCiteHover(null)}
+                        onFocus={() => onCiteHover({ slug, nodeId })}
+                        onBlur={() => onCiteHover(null)}
+                        onClick={() => onCiteClick({ slug, nodeId })}
+                      >
+                        <span>{label}</span>
+                      </button>
+                    );
+                  }}
+                />
+              ) : null}
+              {waiting ? <BriefSkeleton label={brief ? "Writing the brief…" : "Writing…"} /> : null}
+              {message.tools.length > 0 && !(streaming && message.id === lastAssistant?.id) ? (
+                <TraceLine tools={message.tools} citedNodes={new Set(citationsIn(message.content).map((cite) => `${cite.slug}:${cite.nodeId}`)).size} />
+              ) : null}
+              {message.id === lastAssistant?.id && message.suggestions.length > 0 && !streaming ? (
+                <div className="suggestions">
+                  {message.suggestions.map((item) => (
+                    <button key={item} type="button" className="pill line sm" onClick={() => onSend(item)}>
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
-      <form className="chat-foot" onSubmit={submit}>
+      {failedBrief ? (
+        <button type="button" className="text-btn" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
+      <form className="w3-ask" onSubmit={submit}>
         <div className="composer">
           <textarea
             ref={inputRef}
             rows={1}
             value={draft}
-            placeholder={viewer ? "Ask about them" : "Choose who you are first"}
+            placeholder={viewer ? `Ask a follow-up about ${first}…` : "Choose who you are first"}
             aria-label="Message"
             disabled={!viewer || streaming}
             onChange={(event) => setDraft(event.target.value)}
@@ -205,7 +194,7 @@ export function ChatPane({
           </button>
         </div>
       </form>
-    </section>
+    </div>
   );
 }
 
@@ -219,4 +208,3 @@ function BriefSkeleton({ label }: { label: string }) {
     </div>
   );
 }
-

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { NODE_COLOR_VAR, NODE_TYPES, type GraphNode, type NodeType } from "@/lib/types";
 import { ForceGraph } from "./ForceGraph";
 import { findNode, type Citation, type FocusTarget, type GraphState, type PersonListItem } from "./model";
-import { RoomPlan } from "@/components/plan/RoomPlan";
 import { SourcesPanel } from "@/components/sources/SourcesPanel";
 import { NodeCard } from "./NodeCard";
 
@@ -19,7 +18,6 @@ export function GraphPane({
   onFocus,
   onAsk,
   onRetry,
-  onSelect,
 }: {
   viewer: PersonListItem | null;
   person: PersonListItem | null;
@@ -31,74 +29,62 @@ export function GraphPane({
   onFocus: (focus: FocusTarget | null) => void;
   onAsk: (node: GraphNode) => void;
   onRetry: (slug: string) => void;
-  onSelect: (slug: string) => void;
 }) {
   const compare = Boolean(viewer && person && viewer.slug !== person.slug);
   const types = useMemo(() => legendTypes(viewer, person, graphs, compare), [viewer, person, graphs, compare]);
+  if (!person) return null;
 
   return (
     <section className="pane pane-graph" aria-label="Graph" data-pane="graph">
-      {!person ? (
-        viewer ? (
-          <RoomPlan viewer={viewer.slug} onSelect={onSelect} />
-        ) : (
-          <div className="center-note">
-            <div>
-              <p className="eyebrow">Graph</p>
-              <p className="pane-copy">Pick a person to see their graph.</p>
-            </div>
-          </div>
-        )
-      ) : (
-        <>
-          <div className={compare ? "graph-stage compare" : "graph-stage"}>
-            {compare && viewer ? (
-              <GraphColumn
-                key={`${viewer.slug}:layout`}
-                title="You"
-                person={viewer}
-                state={graphs[viewer.slug]}
-                citations={citations}
-                hoverCite={hoverCite}
-                centerNonce={centerNonce}
-                focus={focus}
-                onFocus={onFocus}
-                onAsk={onAsk}
-                onRetry={onRetry}
-              />
-            ) : null}
-            <GraphColumn
-              key={`${person.slug}:layout`}
-              title={person.slug === viewer?.slug ? "You" : person.name}
-              person={person}
-              state={graphs[person.slug]}
-              citations={citations}
-              hoverCite={hoverCite}
-              centerNonce={centerNonce}
-              focus={focus}
-              onFocus={onFocus}
-              onAsk={onAsk}
-              onRetry={onRetry}
-            />
-          </div>
-          {types.length > 0 ? (
-            <div className="legend">
-              {types.map((type) => (
-                <span className="key" key={type}>
-                  <i className="swatch" style={{ background: `var(${NODE_COLOR_VAR[type]})` }} />
-                  {type}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </>
-      )}
+      <div className={compare ? "graph-stage compare" : "graph-stage"}>
+        {compare && viewer ? (
+          <GraphColumn
+            key={`${viewer.slug}:layout`}
+            title="You"
+            tone="you"
+            person={viewer}
+            state={graphs[viewer.slug]}
+            citations={citations}
+            hoverCite={hoverCite}
+            centerNonce={centerNonce}
+            focus={focus}
+            onFocus={onFocus}
+            onAsk={onAsk}
+            onRetry={onRetry}
+          />
+        ) : null}
+        <GraphColumn
+          key={`${person.slug}:layout`}
+          title={person.slug === viewer?.slug ? "You" : person.name}
+          tone={person.slug === viewer?.slug ? "you" : "them"}
+          person={person}
+          state={graphs[person.slug]}
+          citations={citations}
+          hoverCite={hoverCite}
+          centerNonce={centerNonce}
+          focus={focus}
+          onFocus={onFocus}
+          onAsk={onAsk}
+          onRetry={onRetry}
+        />
+      </div>
+      {types.length > 0 ? (
+        <div className="legend">
+          {types.map((type) => (
+            <span className="key" key={type}>
+              <i className="swatch" style={{ background: `var(${NODE_COLOR_VAR[type]})` }} />
+              {type}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
 
 function GraphColumn({
   title,
+  tone,
   person,
   state,
   citations,
@@ -110,6 +96,7 @@ function GraphColumn({
   onRetry,
 }: {
   title: string;
+  tone: "you" | "them";
   person: PersonListItem;
   state: GraphState | undefined;
   citations: Citation[];
@@ -141,7 +128,7 @@ function GraphColumn({
         });
       }}
     >
-      <p className="graph-label">{title}</p>
+      <p className={`graph-label ${tone}`}>{title}</p>
       {state?.status === "ready" ? (
         <button
           type="button"

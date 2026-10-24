@@ -11,7 +11,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "luckdragon",
-  description: "A people explorer for the room.",
+  description:
+    "Before you walk up to someone here, luckdragon tells you who to meet, why now, what you share, and what to say, and shows you the evidence.",
 };
 
 export const viewport: Viewport = {

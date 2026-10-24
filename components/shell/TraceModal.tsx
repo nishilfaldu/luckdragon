@@ -27,7 +27,7 @@ const STEPS: Record<string, { title: string; pattern: string; graph: string }> =
     graph: "room graph",
   },
   run_cypher: { title: "A query the agent wrote for your question", pattern: "", graph: "person graph" },
-  get_node: { title: "Looked up one node and its source", pattern: "", graph: "person graph" },
+  get_node: { title: "Looked up one fact and its source", pattern: "", graph: "person graph" },
   graph_summary: { title: "Summarized a person's graph", pattern: "", graph: "person graph" },
 };
 
@@ -55,7 +55,7 @@ export function TraceLine({ tools, citedNodes }: { tools: ToolCall[]; citedNodes
     `${tools.length} graph ${tools.length === 1 ? "query" : "queries"}`,
     `${rows} rows`,
     `${ms} ms`,
-    citedNodes ? `${citedNodes} cited nodes` : null,
+    citedNodes ? `${citedNodes} cited ${citedNodes === 1 ? "fact" : "facts"}` : null,
   ].filter(Boolean);
   return (
     <>
@@ -111,7 +111,7 @@ function TraceModal({ tools, onClose }: { tools: ToolCall[]; onClose: () => void
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em" }}>How I know this</h2>
             <p style={{ margin: "4px 0 0", fontSize: 14.5, color: "var(--muted)" }}>
               {tools.length} read-only {tools.length === 1 ? "query" : "queries"} against FalkorDB. Each claim in the answer
-              cites the nodes these returned.
+              cites the facts these returned.
             </p>
           </div>
           <button type="button" className="pill sm" onClick={onClose} aria-label="Close">

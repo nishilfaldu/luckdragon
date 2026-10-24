@@ -556,3 +556,252 @@ a { color: inherit; text-decoration-color: var(--faint); text-underline-offset: 
     grid-column: 1 / -1;
   }
 }
+
+/* W3: who to meet / person page / how it works. */
+.panes {
+  grid-template-columns: 280px minmax(0, 1fr) 380px;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.people-foot { background: var(--bg); }
+
+.brand-sub {
+  margin-left: 2px;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.person .count {
+  display: block;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.graph-label.you { color: var(--blue); }
+.graph-label.them { color: var(--amber); }
+
+.pane.w3-main,
+.pane.w3-rail {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.w3-fill {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.w3-rail > * {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.w3-welcome {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 48px 36px 80px;
+}
+
+.w3-sentence {
+  margin: 0 0 14px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.28;
+}
+
+.w3-how { padding: 18px 16px 24px; }
+.w3-how .block-label { margin: 0 0 16px; }
+
+.w3-steps {
+  list-style: none;
+  margin: 0 0 22px;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.w3-steps li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.w3-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--soft);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.w3-steps p {
+  margin: 3px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--fg);
+}
+
+.w3-you-them {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.w3-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.w3-dot.you { background: var(--blue); }
+.w3-dot.them { margin-left: 8px; background: var(--amber); }
+.w3-you { color: var(--blue); }
+.w3-them { color: var(--amber); margin-left: 14px; }
+
+.w3-person {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.w3-sheet {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 18px 28px 36px;
+}
+
+.w3-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  background: var(--bg);
+}
+
+.w3-back {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: 500 14.5px/1.4 var(--sans);
+  cursor: pointer;
+}
+
+.w3-back:hover { color: var(--fg); }
+
+.w3-id {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.w3-id .avatar { width: 52px; height: 52px; font-size: 16px; }
+
+.w3-id h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.w3-self-name,
+.w3-headline {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.w3-thread .msg { font-size: 17px; line-height: 1.55; }
+.w3-ask { margin-top: 8px; }
+
+.w3-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: color-mix(in srgb, #000 28%, transparent);
+}
+
+.w3-overlay {
+  position: fixed;
+  inset: 24px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.w3-overlay-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 14px 8px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.w3-overlay-lead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.w3-overlay-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.w3-overlay-bar .w3-you-them { margin: 0; }
+
+.w3-overlay-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.w3-overlay-body .pane-graph {
+  height: 100%;
+  border-right: 0;
+  background: var(--surface);
+}

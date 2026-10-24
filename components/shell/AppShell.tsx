@@ -4,9 +4,13 @@ import { getDropProtected, subscribe as subscribePrivacy } from "./privacy";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { GraphNode } from "@/lib/types";
 import { ApiError, fetchGraph, fetchPeople, postPerson, streamChat, streamIngest, type ChatStreamEvent } from "./api";
-import { ChatPane } from "./ChatPane";
+import { ConnectionPanel } from "@/components/connect/ConnectionPanel";
+import { WhoToMeet } from "@/components/who/WhoToMeet";
 import { GraphPane } from "./GraphPane";
+import { GraphsOverlay } from "./GraphsOverlay";
 import { Header } from "./Header";
+import { HowItWorks, Welcome } from "./HowItWorks";
+import { PersonView } from "./PersonView";
 import {
   FIXTURE_PEOPLE,
   VIEWER_KEY,
@@ -42,6 +46,7 @@ export function AppShell() {
   const [centerNonce, setCenterNonce] = useState(0);
   const [focus, setFocus] = useState<FocusTarget | null>(null);
   const [prefill, setPrefill] = useState<{ nonce: number; text: string } | null>(null);
+  const [showGraphs, setShowGraphs] = useState(false);
   const fromApi = useRef(false);
   const appliedPerson = useRef(false);
   const appliedViewer = useRef(false);
@@ -201,6 +206,16 @@ export function AppShell() {
     abortChat();
     setSelectedSlug(slug);
   }
+
+  function clearPerson() {
+    abortChat();
+    setSelectedSlug(null);
+    setShowGraphs(false);
+    setHoverCite(null);
+    setFocus(null);
+  }
+
+  const closeGraphs = useCallback(() => setShowGraphs(false), []);
 
   function changeViewer(slug: string) {
     if (slug === viewerRef.current) return;
@@ -476,45 +491,75 @@ export function AppShell() {
           onIngest={(slug) => void startIngest(slug)}
           onAdd={addPerson}
           onRetry={() => void loadPeople()}
-          onHighlight={(nodeIds) => {
-            if (viewerSlug && nodeIds[0]) setFocus({ slug: viewerSlug, id: nodeIds[0] });
-          }}
         />
-        <GraphPane
-          viewer={viewer}
-          person={selected}
-          graphs={graphs}
-          citations={citations}
-          hoverCite={hoverCite}
-          centerNonce={centerNonce}
-          focus={focus}
-          onFocus={setFocus}
-          onAsk={ask}
-          onRetry={loadGraph}
-          onSelect={selectPerson}
-        />
-        <ChatPane
-          person={selected}
-          viewer={viewer}
-          thread={thread}
-          graphs={graphs}
-          activeCite={hoverCite}
-          prefill={prefill}
-          onCiteHover={hoverCitation}
-          onCiteClick={(cite) => {
-            hoverCitation(cite);
-            setFocus({ slug: cite.slug, id: cite.nodeId });
-          }}
-          onSend={(text) => {
-            if (!viewerSlug || !selectedSlug) return;
-            void runChat({ viewer: viewerSlug, person: selectedSlug, text });
-          }}
-          onRetry={() => {
-            if (!viewerSlug || !selectedSlug) return;
-            void runChat({ viewer: viewerSlug, person: selectedSlug, mode: "brief" });
-          }}
-        />
+        <main className="pane w3-main">
+          {selected ? (
+            <PersonView
+              person={selected}
+              viewer={viewer}
+              onBack={clearPerson}
+              thread={thread}
+              graphs={graphs}
+              activeCite={hoverCite}
+              prefill={prefill}
+              onCiteHover={hoverCitation}
+              onCiteClick={(cite) => {
+                hoverCitation(cite);
+                setFocus({ slug: cite.slug, id: cite.nodeId });
+                setShowGraphs(true);
+              }}
+              onSend={(text) => {
+                if (!viewerSlug || !selectedSlug) return;
+                void runChat({ viewer: viewerSlug, person: selectedSlug, text });
+              }}
+              onRetry={() => {
+                if (!viewerSlug || !selectedSlug) return;
+                void runChat({ viewer: viewerSlug, person: selectedSlug, mode: "brief" });
+              }}
+            />
+          ) : viewerSlug ? (
+            <div className="w3-fill">
+              <WhoToMeet viewer={viewerSlug} onOpen={selectPerson} />
+            </div>
+          ) : people && people.length > 0 ? (
+            <div className="w3-fill" />
+          ) : (
+            <Welcome />
+          )}
+        </main>
+        <aside className="pane w3-rail" aria-label={selected ? "How you connect" : "How it works"}>
+          {selected && viewer ? (
+            <ConnectionPanel
+              viewer={{ slug: viewer.slug, name: viewer.name }}
+              person={{ slug: selected.slug, name: selected.name }}
+              onCite={hoverCitation}
+              onShowGraphs={() => setShowGraphs(true)}
+            />
+          ) : selected ? (
+            <div className="w3-how">
+              <p className="pane-copy">Choose who you are with I am… to see how you connect.</p>
+            </div>
+          ) : (
+            <HowItWorks />
+          )}
+        </aside>
       </div>
+      {selected ? (
+        <GraphsOverlay open={showGraphs} compare={Boolean(viewer && viewer.slug !== selected.slug)} onClose={closeGraphs}>
+          <GraphPane
+            viewer={viewer}
+            person={selected}
+            graphs={graphs}
+            citations={citations}
+            hoverCite={hoverCite}
+            centerNonce={centerNonce}
+            focus={focus}
+            onFocus={setFocus}
+            onAsk={ask}
+            onRetry={loadGraph}
+          />
+        </GraphsOverlay>
+      ) : null}
     </div>
   );
 }

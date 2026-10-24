@@ -2,12 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { MatchesPanel } from "@/components/matches/MatchesPanel";
 import { Avatar } from "./Avatar";
 import {
   isHttpUrl,
   sourceLabel,
-  sourceLabels,
   type IngestRun,
   type PersonListItem,
   type SourceRow,
@@ -26,7 +24,6 @@ export function PeoplePane({
   onIngest,
   onAdd,
   onRetry,
-  onHighlight,
 }: {
   people: PersonListItem[] | null;
   note: string | null;
@@ -37,7 +34,6 @@ export function PeoplePane({
   onIngest: (slug: string) => void;
   onAdd: (url: string) => Promise<void>;
   onRetry: () => void;
-  onHighlight?: (nodeIds: string[]) => void;
 }) {
   const [query, setQuery] = useState("");
 
@@ -92,10 +88,7 @@ export function PeoplePane({
           </div>
         ) : null}
         {!viewer && people && people.length > 0 ? <p className="note">Choose who you are with I am…</p> : null}
-        {viewerSlug && !query.trim() ? (
-          <MatchesPanel viewer={viewerSlug} onSelect={onSelect} onHighlight={onHighlight} />
-        ) : null}
-        {viewerSlug && !query.trim() ? <p className="block-label">Everyone</p> : null}
+        {rest.length > 0 ? <p className="block-label">Everyone · {rest.length}</p> : null}
         <div className="rows">
           {rest.map((person) => (
             <PersonRow
@@ -133,10 +126,8 @@ function PersonRow({
   onIngest: (slug: string) => void;
 }) {
   const canIngest = person.status === "none" && !run?.running;
-  const sources = sourceLabels(person);
-  const shownSources = sources.slice(0, 3);
-  const hiddenSources = sources.length - shownSources.length;
   const ingesting = person.status === "ingesting" || Boolean(run?.running);
+  const facts = person.status === "ready" || person.nodeCount > 0 ? factsLabel(person.nodeCount) : null;
   const row = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (selected) row.current?.scrollIntoView({ block: "nearest" });
@@ -158,21 +149,9 @@ function PersonRow({
               <span className="name">{person.name}</span>
               <RoleTag role={person.role} />
               {ingesting ? <span className="live">Ingesting</span> : null}
-              {person.status === "ready" || person.nodeCount > 0 ? (
-                <span className="count">{person.nodeCount} nodes</span>
-              ) : null}
             </span>
             {person.headline ? <span className="headline">{person.headline}</span> : null}
-            {shownSources.length > 0 ? (
-              <span className="sources">
-                {shownSources.map((source) => (
-                  <span className="chip" key={source}>
-                    {source}
-                  </span>
-                ))}
-                {hiddenSources > 0 ? <span className="chip">+{hiddenSources}</span> : null}
-              </span>
-            ) : null}
+            {facts ? <span className="count">{facts}</span> : null}
           </span>
         </button>
         {canIngest && !READ_ONLY ? (
@@ -325,8 +304,12 @@ function personClass(selected: boolean, ingesting: boolean): string {
 
 function personLabel(person: PersonListItem): string {
   const bits = [person.name, statusTitle(person.status)];
-  if (person.nodeCount > 0) bits.push(`${person.nodeCount} nodes`);
+  if (person.nodeCount > 0) bits.push(factsLabel(person.nodeCount));
   return bits.join(", ");
+}
+
+function factsLabel(count: number): string {
+  return count === 1 ? "1 fact" : `${count} facts`;
 }
 
 function comparePeople(a: PersonListItem, b: PersonListItem): number {
