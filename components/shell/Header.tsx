@@ -1,0 +1,26 @@
+import Link from "next/link";
+import { ThemeToggle } from "./ThemeToggle";
+import { ViewerPicker } from "./ViewerPicker";
+import type { PersonListItem } from "./model";
+
+export function Header({
+  people,
+  viewerSlug,
+  onViewer,
+}: {
+  people: PersonListItem[] | null;
+  viewerSlug: string | null;
+  onViewer: (slug: string) => void;
+}) {
+  return (
+    <header className="top">
+      <Link className="brand" href="/">
+        luckdragon
+      </Link>
+      <ViewerPicker people={people} viewerSlug={viewerSlug} onChange={onViewer} />
+      <div className="end">
+        <ThemeToggle />
+      </div>
+    </header>
+  );
+}

@@ -1,0 +1,60 @@
+/* Glance tokens, copied from glance/public/index.html.
+   --sans prefers the self-hosted Inter face next/font sets on --font-inter.
+   Graph colors are added in each theme; the two dark blocks stay in sync. */
+:root {
+  --bg: #ffffff; --surface: #ffffff; --fg: #1f1f1f; --muted: #6b6b6b; --faint: #a6a6a6;
+  --line: #ececec; --soft: #f4f4f3; --well: #fafafa; --band: #f6f6f5;
+  --blue: #2f6fe4; --blue-bg: #edf3ff; --amber: #c47a0e; --amber-dot: #efb02f; --amber-bg: #fff5e3;
+  --green: #2e9b55; --red: #cf4a3f;
+  --add-bg: #eef8f1; --del-bg: #fdf0ee; --unit: #8b5cc4;
+  --sans: var(--font-inter, "Inter"), -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --node-person: #1f1f1f;
+  --node-account: #2f6fe4;
+  --node-organization: #8b5cc4;
+  --node-post: #c47a0e;
+  --node-video: #cf4a3f;
+  --node-repo: #2e9b55;
+  --node-package: #0e8a8a;
+  --node-article: #b0367c;
+  --node-topic: #3d7ea6;
+  --node-skill: #6a4b2b;
+  --node-location: #6b6b6b;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161616; --surface: #1b1b1b; --fg: #ececec; --muted: #a3a3a3; --faint: #6c6c6c;
+  --line: #2a2a2a; --soft: #252525; --well: #1f1f1f; --band: #222222;
+  --blue: #7ea8ff; --blue-bg: #1a2742; --amber: #f2b441; --amber-dot: #efb02f; --amber-bg: #2f2512;
+  --green: #5fd28f; --red: #ff7b70;
+  --add-bg: #13261a; --del-bg: #2c1614; --unit: #c3a0ef;
+  --node-person: #f3f3f3;
+  --node-account: #7ea8ff;
+  --node-organization: #c3a0ef;
+  --node-post: #f2b441;
+  --node-video: #ff7b70;
+  --node-repo: #5fd28f;
+  --node-package: #5dcec6;
+  --node-article: #ff86bf;
+  --node-topic: #7ec8e3;
+  --node-skill: #e0b07a;
+  --node-location: #a3a3a3;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #161616; --surface: #1b1b1b; --fg: #ececec; --muted: #a3a3a3; --faint: #6c6c6c;
+  --line: #2a2a2a; --soft: #252525; --well: #1f1f1f; --band: #222222;
+  --blue: #7ea8ff; --blue-bg: #1a2742; --amber: #f2b441; --amber-dot: #efb02f; --amber-bg: #2f2512;
+  --green: #5fd28f; --red: #ff7b70;
+  --add-bg: #13261a; --del-bg: #2c1614; --unit: #c3a0ef;
+  --node-person: #f3f3f3;
+  --node-account: #7ea8ff;
+  --node-organization: #c3a0ef;
+  --node-post: #f2b441;
+  --node-video: #ff7b70;
+  --node-repo: #5fd28f;
+  --node-package: #5dcec6;
+  --node-article: #ff86bf;
+  --node-topic: #7ec8e3;
+  --node-skill: #e0b07a;
+  --node-location: #a3a3a3;
+  color-scheme: dark }
