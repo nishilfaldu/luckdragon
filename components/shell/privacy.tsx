@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 /**
  * Platform-wide "drop protected traits" setting (on by default). Graph, matches, plan, and chat
@@ -47,19 +47,50 @@ export function protectedParam(separator: "?" | "&"): string {
 
 export function PrivacyToggle() {
   const on = useDropProtected();
+  const [info, setInfo] = useState(false);
   return (
-    <label
-      title="Health, religion, politics, ethnicity or nationality, sexual orientation, family, and age are left out of graphs, matches, and answers"
-      style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13.5, color: "var(--muted)", cursor: "pointer", marginRight: 12 }}
-    >
-      <input
-        type="checkbox"
-        role="switch"
-        checked={on}
-        onChange={(event) => setDropProtected(event.target.checked)}
-        style={{ accentColor: "var(--green)", width: 15, height: 15, margin: 0 }}
-      />
-      {on ? "Protected traits dropped" : "Protected traits allowed"}
-    </label>
+    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, marginRight: 12 }}>
+      <label style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13.5, color: "var(--muted)", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          role="switch"
+          checked={on}
+          onChange={(event) => setDropProtected(event.target.checked)}
+          style={{ accentColor: "var(--green)", width: 15, height: 15, margin: 0 }}
+        />
+        {on ? "Sensitive topics hidden" : "Sensitive topics shown"}
+      </label>
+      <button
+        type="button"
+        aria-label="What does this do?"
+        aria-expanded={info}
+        onClick={() => setInfo((open) => !open)}
+        style={{
+          width: 18, height: 18, padding: 0, borderRadius: "50%", border: "1px solid var(--line)",
+          background: "transparent", color: "var(--muted)", font: "600 11px/1 var(--sans)", cursor: "pointer",
+        }}
+      >
+        i
+      </button>
+      {info ? (
+        <span
+          role="dialog"
+          aria-label="Sensitive topics"
+          style={{
+            position: "absolute", top: "calc(100% + 10px)", right: 0, zIndex: 30, width: 320, padding: "12px 14px",
+            border: "1px solid var(--line)", borderRadius: 14, background: "var(--surface)",
+            boxShadow: "0 12px 30px rgba(0, 0, 0, 0.12)", color: "var(--fg)", fontSize: 13.5, lineHeight: 1.5,
+          }}
+        >
+          <strong style={{ display: "block", marginBottom: 4 }}>{on ? "On: sensitive topics are left out" : "Off: everything public is used"}</strong>
+          When on, luckdragon leaves out facts about health, religion, politics, ethnicity or nationality, sexual
+          orientation, family, and age. They are hidden from the graphs, from Who to meet, and the AI never sees them
+          when it writes a Brief or an answer.
+          <span style={{ display: "block", marginTop: 6, color: "var(--muted)" }}>
+            Matched by keywords on personal phrasing, so professional work like health tech or accessibility stays.
+          </span>
+        </span>
+      ) : null}
+    </span>
   );
 }

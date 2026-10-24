@@ -1,11 +1,14 @@
 "use client";
 
+import { IngestActivity } from "@/components/activity/IngestActivity";
+import type { IngestRun } from "./model";
 import { Avatar } from "./Avatar";
 import { ChatPane } from "./ChatPane";
 import { YouThemLegend } from "./YouThemLegend";
 import type { ChatThread, Citation, GraphState, PersonListItem } from "./model";
 
 export function PersonView({
+  ingest,
   person,
   viewer,
   onBack,
@@ -18,6 +21,7 @@ export function PersonView({
   onSend,
   onRetry,
 }: {
+  ingest?: IngestRun;
   person: PersonListItem;
   viewer: PersonListItem | null;
   onBack: () => void;
@@ -51,7 +55,8 @@ export function PersonView({
           </div>
         </header>
         <YouThemLegend />
-        <ChatPane
+        {ingest?.running ? <IngestActivity name={person.name} run={ingest} /> : null}
+        {ingest?.running ? null : <ChatPane
           person={person}
           viewer={viewer}
           thread={thread}
@@ -62,7 +67,7 @@ export function PersonView({
           onCiteClick={onCiteClick}
           onSend={onSend}
           onRetry={onRetry}
-        />
+        />}
       </div>
     </div>
   );

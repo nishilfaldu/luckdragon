@@ -14,7 +14,7 @@ curl -s localhost:3000/api/people | python3 -c 'import json,sys; p=json.load(sys
 
   Prefer **Riken Shah** (last check **169 nodes**), else **Satyam Singh**. Say the name and the count on the row.
 - Header already reads **Protected traits dropped**. Leave it. Pick **I am Nishil Faldu**, then click **← Who to meet** (or reload) so nobody is selected: the middle is **WHO TO MEET**, the right is **HOW IT WORKS**. Three judges are in the list: **Schezeen Fazulbhoy** (why now: Oct 23 · Judging Patch the Conference Hackathon), **Satyam Singh**, **Riken Shah** (Oct 24 · Monorepos and complete context for coding agents).
-- Live add: a name you met today, else **Kent C. Dodds**. Backup, already open, do not reload: https://luckdragon.nishilfaldu.site (read-only: no **+ Add person**).
+- Live add: a name you met today, else **Jason Lengstorf** (Kent C. Dodds is already in the room, added live this afternoon). Backup, already open, do not reload: https://luckdragon.nishilfaldu.site (read-only: no **+ Add person**).
 
 ## Script
 
@@ -34,7 +34,7 @@ Still skeleton bars at 1:20? Ask anyway.
 
 **2:05.** Right column → **Show full graphs**. Both graphs, You and Riken. On Riken's graph click **Data sources**: "Fetched today at 1:23 PM · 8 of 8 sources OK", the per-source counts (LinkedIn, X, YouTube, Web search, Research agent), and the **Bright Data** badges. "LinkedIn, X, and Google come through Bright Data; when a source fails we retry once, skip it, and keep the rest." **Close**.
 
-**2:25.** Left, **+ Add person**. Type the name you met, else `Kent C. Dodds`. **Add**. "They weren't in the room. Identity search finds their accounts, then each source lights up." Don't wait; the row shows progress.
+**2:25.** Left, **+ Add person**. Type the name you met, else `Jason Lengstorf`. **Add**. "They weren't in the room. Identity search finds their accounts, then each source lights up." Don't wait; the row shows progress.
 
 **2:40.** Header switch **Protected traits dropped** (on by default): "Graphs, matches, and briefs never use health, religion, politics, ethnicity, orientation, family, or age."
 

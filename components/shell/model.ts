@@ -30,12 +30,20 @@ export type SourceRow = {
   status: "pending" | "fetching" | "extracting" | "writing" | "done" | "error" | "skipped";
   count?: number;
   message?: string;
+  /** Activity-feed extras from the pipeline's narrated events. */
+  label?: string;
+  product?: string;
+  detail?: string;
+  items?: string[];
+  fetched?: number;
+  facts?: number;
 };
 
 export type IngestRun = {
   running: boolean;
   error: string | null;
   sources: SourceRow[];
+  startedAt?: string;
 };
 
 export type ToolCall = {

@@ -386,7 +386,7 @@ export function AppShell() {
     if (ingest[slug]?.running) return;
     setSelectedSlug(slug);
     setPeople((prev) => prev?.map((person) => (person.slug === slug ? { ...person, status: "ingesting" } : person)) ?? prev);
-    setIngest((prev) => ({ ...prev, [slug]: { running: true, error: null, sources: prev[slug]?.sources ?? [] } }));
+    setIngest((prev) => ({ ...prev, [slug]: { running: true, error: null, sources: [], startedAt: new Date().toISOString() } }));
     let sawDone = false;
     let finished = false;
     try {
@@ -412,8 +412,21 @@ export function AppShell() {
         setIngest((prev) => {
           const current = prev[slug] ?? { running: true, error: null, sources: [] };
           const sources = current.sources.slice();
-          const row = { source: event.source, status: event.status, count: event.count, message: event.message };
           const index = sources.findIndex((item) => item.source === event.source);
+          const before = index >= 0 ? sources[index] : undefined;
+          const extracted = event.status === "done" && event.message === "extracted";
+          const row = {
+            source: event.source,
+            status: event.status,
+            count: event.count,
+            message: event.message,
+            label: event.label ?? before?.label,
+            product: event.product ?? before?.product,
+            detail: event.detail ?? before?.detail,
+            items: event.items ?? before?.items,
+            fetched: event.status === "done" && !extracted ? event.count : before?.fetched,
+            facts: extracted ? event.count : before?.facts,
+          };
           if (index >= 0) sources[index] = row;
           else sources.push(row);
           return { ...prev, [slug]: { ...current, running: true, sources } };
@@ -453,7 +466,8 @@ export function AppShell() {
       return [...list, { ...person, status: "none" }];
     });
     setPeopleNote(null);
-    await startIngest(person.slug);
+    // Don't wait: the form clears now and the activity view shows the ingest.
+    void startIngest(person.slug);
   }
 
   const presented = useMemo(
@@ -495,6 +509,7 @@ export function AppShell() {
         <main className="pane w3-main">
           {selected ? (
             <PersonView
+              ingest={ingest[selected.slug]}
               person={selected}
               viewer={viewer}
               onBack={clearPerson}
