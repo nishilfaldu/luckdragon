@@ -9,7 +9,8 @@
     "lint": "eslint",
     "ingest": "tsx scripts/ingest.ts",
     "smoke:bd": "tsx scripts/smoke-brightdata.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "copy:cloud": "tsx scripts/copy-to-cloud.ts"
   },
   "dependencies": {
     "@openai/agents": "^0.21.0",

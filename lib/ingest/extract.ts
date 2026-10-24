@@ -36,7 +36,7 @@ export async function extractBatch(person: PersonRow, source: string, items: Raw
   if (items.length === 0) return { nodes: [], edges: [] };
   const fetchedAt = new Date().toISOString();
   try {
-    return await extractWithModel(person, source, items, fetchedAt);
+    return stampVia(await extractWithModel(person, source, items, fetchedAt), source);
   } catch (error) {
     const fallback = fallbackGraph(source, items, fetchedAt);
     if (fallback.nodes.length === 0) throw error;
@@ -123,9 +123,9 @@ function materialize(parsed: z.infer<typeof ExtractionSchema>, fetchedAt: string
 }
 
 export function fallbackGraph(source: string, items: RawItem[], fetchedAt: string): GraphBatch {
-  if (source === "github") return githubFallback(items, fetchedAt);
+  if (source === "github") return stampVia(githubFallback(items, fetchedAt), source);
   if (source === "website" || source === "luma" || source === "research" || source === "serp") {
-    return pageFallback(source, items, fetchedAt);
+    return stampVia(pageFallback(source, items, fetchedAt), source);
   }
   return { nodes: [], edges: [] };
 }
@@ -277,6 +277,7 @@ export function seedGraph(
         headline: person.headline,
         avatar_url: person.avatar_url,
         luma_url: person.luma_url,
+        role: person.role,
       },
       source_url: person.luma_url || undefined,
       fetched_at: fetchedAt,
@@ -303,7 +304,39 @@ export function seedGraph(
     });
     edges.push({ source: PERSON_ROOT_ID, target: id, type: "HAS_ACCOUNT" });
   }
-  return { nodes, edges };
+  return stampVia({ nodes, edges }, "seed");
+}
+
+/** Ingest source ids recorded on each node as `props.via`. */
+const VIA_SOURCES = new Set([
+  "linkedin",
+  "x",
+  "serp",
+  "website",
+  "luma",
+  "github",
+  "youtube",
+  "bluesky",
+  "reddit",
+  "instagram",
+  "threads",
+  "crunchbase",
+  "packages",
+  "research",
+  "resolve",
+  "seed",
+]);
+
+function stampVia(batch: GraphBatch, source: string): GraphBatch {
+  const via = source.trim().toLowerCase();
+  if (!VIA_SOURCES.has(via)) return batch;
+  return {
+    nodes: batch.nodes.map((node) => ({
+      ...node,
+      props: { ...node.props, via },
+    })),
+    edges: batch.edges,
+  };
 }
 
 type KnownAccountLike = { platform: string; url: string; matched_via: string; confidence: number };

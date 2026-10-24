@@ -13,6 +13,9 @@ import {
   type SourceRow,
 } from "./model";
 
+/** The public deploy is explore-only: ingest runs on the presenter's laptop. */
+const READ_ONLY = process.env.NEXT_PUBLIC_LUCKDRAGON_READ_ONLY === "1";
+
 export function PeoplePane({
   people,
   note,
@@ -107,9 +110,11 @@ export function PeoplePane({
         </div>
         {nothingMatches ? <p className="pane-copy">No one matches.</p> : null}
       </div>
-      <div className="people-foot">
-        <AddPerson onAdd={onAdd} />
-      </div>
+      {READ_ONLY ? null : (
+        <div className="people-foot">
+          <AddPerson onAdd={onAdd} />
+        </div>
+      )}
     </section>
   );
 }
@@ -170,7 +175,7 @@ function PersonRow({
             ) : null}
           </span>
         </button>
-        {canIngest ? (
+        {canIngest && !READ_ONLY ? (
           <button type="button" className="pill sm ingest-btn" onClick={() => onIngest(person.slug)}>
             Ingest
           </button>

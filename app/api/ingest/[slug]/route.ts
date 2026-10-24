@@ -1,9 +1,12 @@
 import type { NextRequest } from "next/server";
+import { readOnlyResponse } from "@/lib/access";
 import { isIngesting } from "@/lib/ingest/events";
 import { iterateIngest } from "@/lib/ingest/pipeline";
 import { getPerson } from "@/lib/people";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ slug: string }> }) {
+  const blocked = readOnlyResponse();
+  if (blocked) return blocked;
   const { slug } = await context.params;
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     return Response.json({ error: "Invalid slug" }, { status: 400 });

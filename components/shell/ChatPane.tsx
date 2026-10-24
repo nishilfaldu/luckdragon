@@ -1,5 +1,6 @@
 "use client";
 
+import { SourcesPanel } from "@/components/sources/SourcesPanel";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
 import { Markdown } from "./markdown";
@@ -106,6 +107,10 @@ export function ChatPane({
     <section className="pane pane-chat" aria-label="Chat" data-pane="chat">
       <div className="chat-scroll" ref={scroller}>
         <p className="eyebrow">{person.name}</p>
+        <details className="how sources-how" style={{ margin: "4px 0 14px" }}>
+          <summary>Where this graph came from</summary>
+          <SourcesPanel slug={person.slug} />
+        </details>
         {!viewer ? <p className="pane-copy">Choose who you are to get a brief.</p> : null}
         {viewer && !thread && (!personReady || !viewerReady) ? (
           <p className="pane-copy">
