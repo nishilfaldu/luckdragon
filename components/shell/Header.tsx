@@ -16,8 +16,7 @@ export function Header({
   return (
     <header className="top">
       <Link className="brand" href="/">
-        <span>luckdragon</span>
-        <span className="brand-sub">Patch the Conference</span>
+        luckdragon
       </Link>
       <ViewerPicker people={people} viewerSlug={viewerSlug} onChange={onViewer} />
       <div className="end">
