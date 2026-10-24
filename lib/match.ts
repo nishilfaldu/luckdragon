@@ -357,7 +357,7 @@ async function loadProfile(slug: string, people: Map<string, PersonRow>, require
     const [root, ...groups] = await Promise.all([
       roQuery(
         slug,
-        "MATCH (p:Person {id: 'person_root'}) RETURN coalesce(p.label, p.name, '') AS name, coalesce(p.headline, '') AS headline, coalesce(p.avatar_url, '') AS avatar_url LIMIT 1",
+        "MATCH (p:Person {id: 'person_root'}) RETURN coalesce(p.label, p.name, '') AS name, coalesce(p.headline, '') AS headline, coalesce(p.avatar_url, '') AS avatar_url, coalesce(p.role, '') AS role LIMIT 1",
       ),
       ...FACETS.map((type) =>
         roQuery(
@@ -393,7 +393,7 @@ async function loadProfile(slug: string, people: Map<string, PersonRow>, require
       name: person?.name || graphName || slug,
       headline: person?.headline || graphHeadline || "",
       avatar_url: person?.avatar_url || graphAvatar || "",
-      role: person?.role ?? "",
+      role: person?.role || text(row?.role) || "",
       signals,
     };
   } catch (error) {
