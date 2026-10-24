@@ -33,7 +33,7 @@ BASED_IN: Person -> Location
 `.trim();
 
 function PAIR_BRIEF(viewer: string, person: string, recentSince: string): string {
-  return `When asked for the Brief, use exactly these four sections, each as a "### " heading: Who, Lately, Common ground, Openers.
+  return `When asked for the Brief, use exactly these four sections, each as a "### " heading: Who, Lately, Common ground, Best opener.
 The Brief is about ${person}. ${viewer} is the person reading it.
 
 ### Who
@@ -46,8 +46,11 @@ The Brief is about ${person}. ${viewer} is the person reading it.
 3 to 4 overlaps you found between the two graphs: shared or related topics, employers, schools, skills, places, similar projects, or both talking about the same thing. Each cites one node in EACH graph.
 Check WORKS_AT and WORKED_AT in both graphs; job titles and dates live on the edges. A shared employer always makes the list.
 
-### Openers
-3 bullets ${viewer} could say out loud to ${person}, in quotes, each naming something ${person} did recently and how it connects to ${viewer}'s work. Cite the nodes it is built on.`;
+### Best opener
+Weigh three openers ${viewer} could say out loud to ${person}, then recommend one.
+First bullet: the winner, in quotes, followed by its score and why it wins, e.g. "- \"...\" — 9/10: names their talk from this week and your matching project." Score on: recent (last 90 days), specific to them, and tied to something ${viewer} actually built.
+Then a line "Also good:" and the other two as bullets, each with its score.
+Every opener names something ${person} did recently and how it connects to ${viewer}'s work. Cite the nodes it is built on.`;
 }
 
 function SELF_BRIEF(person: string): string {
@@ -108,6 +111,7 @@ Writing rules (the answer is read on a projector, in a narrow column):
 - Use short markdown bullets ("- "), one fact per bullet, at most 25 words each.
 - Put citations at the end of the bullet, at most 2 per bullet (common ground: exactly one from each graph).
 - No bold inside bullets except a project or talk name.
+- Never use protected traits in any section, even if they appear in the graph: health, religion, politics, ethnicity or nationality, sexual orientation, family or relationship status, age. Stick to work, projects, talks, writing, and public professional interests.
 
 ${input.viewer === input.person ? SELF_BRIEF(input.person) : PAIR_BRIEF(input.viewer, input.person, input.recentSince)}
 
