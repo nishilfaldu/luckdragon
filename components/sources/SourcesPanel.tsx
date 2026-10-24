@@ -11,10 +11,13 @@ type SourceProduct = {
   sampleUrls: string[];
 };
 
+type SourceOutcome = { source: string; status: "ok" | "failed" | "none"; count?: number; message?: string };
+
 type SourceSummary = {
   slug: string;
   total: number;
   products: SourceProduct[];
+  freshness?: { at: string; sources: SourceOutcome[] } | null;
 };
 
 type PanelState =
@@ -114,6 +117,7 @@ function ProductList({ summary }: { summary: SourceSummary }) {
   const share = fetched ? Math.round((bright / fetched) * 100) : 0;
   return (
     <>
+      {summary.freshness ? <Freshness freshness={summary.freshness} /> : null}
       <p style={{ ...NOTE, marginBottom: 8 }}>
         {total} nodes. {share}% of fetched facts came through Bright Data.
       </p>
@@ -158,4 +162,50 @@ function isSummary(value: unknown): value is SourceSummary {
   if (!value || typeof value !== "object") return false;
   const row = value as SourceSummary;
   return typeof row.slug === "string" && typeof row.total === "number" && Array.isArray(row.products);
+}
+
+const SOURCE_NAME: Record<string, string> = {
+  linkedin: "LinkedIn", x: "X", youtube: "YouTube", github: "GitHub", website: "Website", serp: "Web search",
+  luma: "Luma", research: "Research agent", instagram: "Instagram", threads: "Threads", bluesky: "Bluesky",
+  reddit: "Reddit", crunchbase: "Crunchbase", packages: "npm/PyPI", tiktok: "TikTok",
+};
+
+function sourceName(id: string): string {
+  return SOURCE_NAME[id] ?? id;
+}
+
+/** When the graph was fetched and how each source did, so failures are visible rather than silent. */
+function Freshness({ freshness }: { freshness: { at: string; sources: SourceOutcome[] } }) {
+  const tried = freshness.sources.filter((item) => item.source !== "resolve" && item.status !== "none");
+  const ok = tried.filter((item) => item.status === "ok");
+  const failed = tried.filter((item) => item.status === "failed");
+  const missing = freshness.sources.filter((item) => item.status === "none" && item.source !== "resolve");
+  const when = new Date(freshness.at);
+  const today = when.toDateString() === new Date().toDateString();
+  const time = when.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return (
+    <div style={{ margin: "0 0 12px", paddingBottom: 12, borderBottom: "1px solid var(--line)" }}>
+      <p style={{ margin: 0, fontSize: 14, color: "var(--fg)" }}>
+        Fetched {today ? "today" : when.toLocaleDateString()} at {time} · {ok.length} of {tried.length} sources OK
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+        {ok.map((item) => (
+          <span key={item.source} className="chip" style={{ maxWidth: "100%" }}>
+            {sourceName(item.source)} {item.count ?? ""}
+          </span>
+        ))}
+      </div>
+      {failed.map((item) => (
+        <p key={item.source} style={{ margin: "8px 0 0", fontSize: 13.5, color: "var(--red)" }}>
+          {sourceName(item.source)} failed{item.message ? `: ${item.message.slice(0, 90)}` : ""}. Skipped; the other sources were kept.
+        </p>
+      ))}
+      {missing.length ? (
+        <p style={{ ...NOTE, marginTop: 8, fontSize: 13 }}>No account found: {missing.map((item) => sourceName(item.source)).join(", ")}</p>
+      ) : null}
+      <p style={{ ...NOTE, marginTop: 6, fontSize: 12.5 }}>
+        Failed requests are retried once, then that source is skipped without stopping the rest.
+      </p>
+    </div>
+  );
 }

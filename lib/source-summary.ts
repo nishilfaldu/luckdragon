@@ -1,4 +1,5 @@
 import { roQuery, ROW_CAP } from "@/lib/falkor";
+import type { SourceOutcome } from "@/lib/ingest/report";
 import { assertPersonSlug } from "@/lib/graph/ids";
 import { graphExists, GraphNotFoundError } from "@/lib/graph/read";
 
@@ -15,6 +16,8 @@ export type SourceSummary = {
   slug: string;
   total: number;
   products: SourceProduct[];
+  /** The last ingest: when it ran and each source's outcome (null for graphs ingested before reports existed). */
+  freshness: { at: string; sources: SourceOutcome[] } | null;
 };
 
 type Classified = { product: string; provider: SourceProvider };
@@ -111,7 +114,7 @@ export async function sourceSummary(slug: string): Promise<SourceSummary> {
     (a, b) => b.count - a.count || a.product.localeCompare(b.product),
   );
 
-  return { slug: person, total: rows.length, products };
+  return { slug: person, total: rows.length, products, freshness: await readFreshness(person) };
 }
 
 function classify(via: unknown, sourceUrl: string | undefined): Classified {
@@ -155,4 +158,15 @@ function httpUrl(value: unknown): string | undefined {
   const trimmed = value.trim();
   if (!/^https?:\/\//i.test(trimmed)) return undefined;
   return trimmed;
+}
+
+async function readFreshness(slug: string): Promise<SourceSummary["freshness"]> {
+  const result = await roQuery(slug, "MATCH (p:Person {id: 'person_root'}) RETURN p.last_ingest_at AS at, p.ingest_report AS report");
+  const row = result.data[0];
+  if (!row || typeof row.at !== "string" || typeof row.report !== "string") return null;
+  try {
+    return { at: row.at, sources: JSON.parse(row.report) as SourceOutcome[] };
+  } catch {
+    return null;
+  }
 }

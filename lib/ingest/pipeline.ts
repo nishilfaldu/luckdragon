@@ -11,6 +11,7 @@ import type { SourceContext } from "@/lib/ingest/sources/types";
 import { loadGraphModules, persistGraph } from "@/lib/ingest/store";
 import { getPerson } from "@/lib/people";
 import { updateRoomPerson } from "@/lib/room";
+import { reportFrom, saveReport } from "@/lib/ingest/report";
 import type { IngestEvent, PersonRow } from "@/lib/types";
 
 const SOURCE_CONCURRENCY = 8;
@@ -40,8 +41,11 @@ export async function runIngest(
     return;
   }
   resetWebSearchBudget();
+  const seen: IngestEvent[] = [];
   const emit = (source: string, status: IngestEvent["status"], extra?: { count?: number; message?: string }) => {
-    onEvent(ingestEvent(slug, source, status, extra));
+    const event = ingestEvent(slug, source, status, extra);
+    seen.push(event);
+    onEvent(event);
   };
   try {
     await loadGraphModules();
@@ -131,6 +135,8 @@ export async function runIngest(
       emit("room", "error", { message: messageOf(error) });
     }
     emit("all", "done", { count: merged.nodes.length });
+    // Freshness and per-source outcomes, shown in the Data sources panel.
+    await saveReport(slug, reportFrom(seen)).catch(() => undefined);
   } catch (error) {
     emit("all", "error", { message: messageOf(error) });
     emit("all", "done");
