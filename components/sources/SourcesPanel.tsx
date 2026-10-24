@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import styles from "./SourcesPanel.module.css";
-
 type SourceProvider = "Bright Data" | "GitHub API" | "LLM";
 
 type SourceProduct = {
@@ -90,43 +88,66 @@ export function SourcesPanel({ slug }: { slug: string }) {
     };
   }, [slug]);
 
+  // Inline styles keep the panel styled even when a CSS module fails to load.
   return (
-    <section className={styles.panel} aria-label="Where this graph came from">
-      <h2 className={styles.title}>Where this graph came from</h2>
-      {state.kind === "loading" ? <p className={styles.note}>Loading sources…</p> : null}
-      {state.kind === "empty" ? <p className={styles.note}>No sources recorded yet.</p> : null}
-      {state.kind === "error" ? <p className={styles.note}>Couldn&apos;t load sources.</p> : null}
-      {state.kind === "ready" ? <ProductList products={state.summary.products} /> : null}
+    <section aria-label="Data sources" style={{ marginTop: 8 }}>
+      {state.kind === "loading" ? <p style={NOTE}>Loading sources…</p> : null}
+      {state.kind === "empty" ? <p style={NOTE}>No sources recorded yet.</p> : null}
+      {state.kind === "error" ? <p style={NOTE}>Couldn&apos;t load sources.</p> : null}
+      {state.kind === "ready" ? <ProductList summary={state.summary} /> : null}
     </section>
   );
 }
 
-function ProductList({ products }: { products: SourceProduct[] }) {
-  const aria = products.map((item) => `${item.product} ${item.count}`).join(", ");
+const NOTE = { margin: 0, fontSize: 14, color: "var(--muted)" } as const;
+
+/** Plain-language names for the summary's product keys. */
+const DISPLAY: Record<string, string> = {
+  Derived: "Extracted by AI (topics, skills)",
+  Seed: "From the people list",
+};
+
+function ProductList({ summary }: { summary: SourceSummary }) {
+  const { products, total } = summary;
+  const bright = products.filter((item) => item.provider === "Bright Data").reduce((sum, item) => sum + item.count, 0);
+  const fetched = products.filter((item) => item.product !== "Derived").reduce((sum, item) => sum + item.count, 0);
+  const share = fetched ? Math.round((bright / fetched) * 100) : 0;
   return (
     <>
-      <div className={styles.bar} role="img" aria-label={aria}>
+      <p style={{ ...NOTE, marginBottom: 8 }}>
+        {total} nodes. {share}% of fetched facts came through Bright Data.
+      </p>
+      <div
+        role="img"
+        aria-label={products.map((item) => `${item.product} ${item.count}`).join(", ")}
+        style={{ display: "flex", height: 6, borderRadius: 999, overflow: "hidden", gap: 2, marginBottom: 10 }}
+      >
         {products.map((item) => (
-          <span
-            key={item.product}
-            className={styles.seg}
-            style={{ flexGrow: item.count, background: colorFor(item.product) }}
-            title={`${item.product}: ${item.count}`}
-          />
+          <span key={item.product} title={`${label(item.product)}: ${item.count}`} style={{ flexGrow: item.count, background: colorFor(item.product) }} />
         ))}
       </div>
-      <ul className={styles.list}>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
         {products.map((item) => (
-          <li key={item.product} className={styles.row}>
-            <i className={styles.swatch} style={{ background: colorFor(item.product) }} />
-            <span className={styles.name}>{item.product}</span>
-            {item.provider === "Bright Data" ? <span className={styles.tag}>Bright Data</span> : null}
-            <span className={styles.count}>{item.count}</span>
+          <li key={item.product} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, lineHeight: 1.35 }}>
+            <i style={{ width: 8, height: 8, borderRadius: "50%", flex: "none", background: colorFor(item.product) }} />
+            <span style={{ flex: 1, minWidth: 0, color: "var(--fg)" }}>{label(item.product)}</span>
+            {item.provider === "Bright Data" ? (
+              <span style={{ flex: "none", fontSize: 12, padding: "0 7px", borderRadius: 999, color: "var(--blue)", background: "var(--blue-bg)" }}>
+                Bright Data
+              </span>
+            ) : null}
+            <span style={{ flex: "none", minWidth: 28, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>
+              {item.count}
+            </span>
           </li>
         ))}
       </ul>
     </>
   );
+}
+
+function label(product: string): string {
+  return DISPLAY[product] ?? product;
 }
 
 function colorFor(product: string): string {

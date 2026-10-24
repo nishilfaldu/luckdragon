@@ -126,7 +126,7 @@ export function ChatPane({
           {dropProtected ? "Protected traits dropped" : "Protected traits allowed"}
         </label>
         <details className="how sources-how" style={{ margin: "4px 0 14px" }}>
-          <summary>Where this graph came from</summary>
+          <summary>Data sources</summary>
           <SourcesPanel slug={person.slug} />
         </details>
         {!viewer ? <p className="pane-copy">Choose who you are to get a brief.</p> : null}
