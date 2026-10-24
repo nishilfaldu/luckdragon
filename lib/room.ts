@@ -12,7 +12,10 @@ const ITEM_LABELS = ["Post", "Video", "Repo", "Article", "Package"] as const;
 const ITEMS_PER_PERSON = 40;
 
 /** Labels that match nearly everyone and say nothing about a person. */
-const IGNORED = new Set(["html", "css", "shell", "github profile readme", "github", "software", "technology", "programming"]);
+const IGNORED = new Set([
+  "html", "css", "shell", "github profile readme", "github", "software", "technology", "programming",
+  "software development", "software engineering", "web development", "engineering",
+]);
 const ALIASES: Record<string, string> = {
   js: "javascript",
   ts: "typescript",
@@ -201,8 +204,11 @@ WHERE mutual.slug <> $viewer AND mutual.slug <> $person AND a <> b
 RETURN mutual.slug AS mutual, mutual.name AS mutualName, a.label AS mine, b.label AS theirs, a.weight + b.weight AS strength
 ORDER BY strength DESC LIMIT 3`;
 
-const SHORTEST_CYPHER = `MATCH (me:Person {slug: $viewer}), (them:Person {slug: $person})
-RETURN [n IN nodes(shortestPath((me)-[:HAS*..6]-(them))) | coalesce(n.name, n.label)] AS path`;
+// Explicit directed patterns: FalkorDB Cloud rejects undirected shortestPath, and these read clearly on screen.
+const TWO_PEOPLE_CYPHER = `MATCH (me:Person {slug: $viewer})-[:HAS]->(a:Facet)<-[:HAS]-(p1:Person)-[:HAS]->(b:Facet)<-[:HAS]-(p2:Person)-[:HAS]->(c:Facet)<-[:HAS]-(them:Person {slug: $person})
+WHERE p1 <> p2 AND p1.slug <> $person AND p2.slug <> $viewer
+RETURN [me.name, a.label, p1.name, b.label, p2.name, c.label, them.name] AS path
+ORDER BY a.weight + b.weight + c.weight DESC LIMIT 1`;
 
 export type RoomPaths = Awaited<ReturnType<typeof roomPaths>>;
 
@@ -210,19 +216,24 @@ export type RoomPaths = Awaited<ReturnType<typeof roomPaths>>;
 export async function roomPaths(viewer: string, person: string) {
   const traces: CypherTrace[] = [];
   const params = { viewer, person };
-  const [shared, whyNow, intros, shortest] = await Promise.all([
+  const [shared, whyNow, intros, names] = await Promise.all([
     traced("shared_facets", SHARED_CYPHER, params, traces),
     traced("why_now", WHY_NOW_CYPHER, params, traces),
     traced("intro_paths", INTRO_CYPHER, params, traces),
-    traced("shortest_path", SHORTEST_CYPHER, params, traces),
+    roomQuery("MATCH (p:Person) WHERE p.slug IN [$viewer, $person] RETURN p.slug AS slug, p.name AS name", params),
   ]);
-  return {
-    shared,
-    whyNow,
-    intros,
-    shortest: ((shortest[0]?.path as unknown[]) ?? []).map(String),
-    traces,
-  };
+  const nameOf = (slug: string) => String(names.find((row) => row.slug === slug)?.name ?? slug);
+  // Shortest path: 2 hops through a shared facet, else 4 hops through a mutual, else 6 hops through two people.
+  let shortest: string[] = [];
+  if (shared[0]) shortest = [nameOf(viewer), String(shared[0].label), nameOf(person)];
+  else if (intros[0]) {
+    const best = intros[0];
+    shortest = [nameOf(viewer), String(best.mine), String(best.mutualName), String(best.theirs), nameOf(person)];
+  } else {
+    const rows = await traced("two_hop_people", TWO_PEOPLE_CYPHER, params, traces);
+    shortest = ((rows[0]?.path as unknown[]) ?? []).map(String);
+  }
+  return { shared, whyNow, intros, shortest, traces };
 }
 
 export async function roomExists(): Promise<boolean> {
