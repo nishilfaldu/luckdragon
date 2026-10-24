@@ -1,3 +1,5 @@
+import { unlocker } from "@/lib/ingest/brightdata/client";
+
 export function htmlToText(html: string): string {
   return decode(
     html
@@ -48,6 +50,16 @@ export function hrefs(html: string): string[] {
 }
 
 export async function fetchPage(url: string, timeoutMs = 15_000): Promise<{ html: string; text: string }> {
+  // With Bright Data configured, pages (personal sites, Luma profiles) go through Web Unlocker;
+  // a plain fetch is the fallback when the token is missing or the Unlocker call fails.
+  if (process.env.BRIGHTDATA_API_TOKEN?.trim() && process.env.BRIGHTDATA_UNLOCKER_ZONE?.trim()) {
+    try {
+      const html = await unlocker(url, "raw");
+      return { html, text: htmlToText(html).slice(0, 12_000) };
+    } catch {
+      // fall through to a plain fetch
+    }
+  }
   const response = await fetch(url, {
     redirect: "follow",
     signal: AbortSignal.timeout(timeoutMs),
