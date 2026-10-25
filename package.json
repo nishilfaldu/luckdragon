@@ -11,7 +11,8 @@
     "smoke:bd": "tsx scripts/smoke-brightdata.ts",
     "typecheck": "tsc --noEmit",
     "copy:cloud": "tsx scripts/copy-to-cloud.ts",
-    "room:build": "tsx scripts/build-room.ts"
+    "room:build": "tsx scripts/build-room.ts",
+    "worker": "tsx scripts/worker.ts"
   },
   "dependencies": {
     "@openai/agents": "^0.21.0",

@@ -193,6 +193,16 @@ flowchart TD
   chat --> ui
 ```
 
+## Live adds on the public deploy
+
+Vercel functions stop after 5 minutes and an ingest takes about 10, so the deploy queues adds instead of running them:
+
+1. "+ Add person" on the site saves a job in FalkorDB Cloud (`jobs` graph), capped at 5 adds a day.
+2. `npm run worker` on the presenter's laptop picks it up within seconds and runs the normal pipeline against FalkorDB Cloud.
+3. Each progress event is written back to FalkorDB, and the site streams them to the browser in about 4.5 minute windows, reconnecting until the run ends.
+
+Turn it on with `LUCKDRAGON_QUEUE=1` on Vercel and `NEXT_PUBLIC_LUCKDRAGON_READ_ONLY` unset. When the worker is offline, a job waits as "Queued".
+
 ## Run it locally
 
 Docker, Node, and npm. FalkorDB listens on port 6379. Its own browser UI is on port 3001. This app is on port 3000.

@@ -1,3 +1,4 @@
+import { enqueueJob, queueMode, rowForQueuedAdd } from "@/lib/queue";
 import { connection } from "next/server";
 import { isReadOnly, readOnlyResponse } from "@/lib/access";
 import { addPersonFromLuma } from "@/lib/ingest/add-person";
@@ -15,7 +16,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const blocked = readOnlyResponse();
+  const queued = queueMode();
+  const blocked = queued ? null : readOnlyResponse();
   if (blocked) return blocked;
   let body: { input?: unknown; luma_url?: unknown };
   try {
@@ -27,6 +29,17 @@ export async function POST(request: Request) {
   if (!input) return Response.json({ error: PERSON_INPUT_ERROR }, { status: 400 });
   const parsed = classifyPersonInput(input);
   if (!parsed) return Response.json({ error: PERSON_INPUT_ERROR }, { status: 400 });
+  if (queued) {
+    // Public deploy: queue the add; the presenter's worker runs the ingest.
+    try {
+      const person = await rowForQueuedAdd(parsed);
+      const result = await enqueueJob(person);
+      if (!result.ok) return Response.json({ error: result.reason }, { status: 429 });
+      return Response.json({ person });
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : "Could not queue" }, { status: 502 });
+    }
+  }
   try {
     const person = parsed.kind === "luma" ? await addPersonFromLuma(parsed.url) : addClassifiedPerson(parsed);
     return Response.json({ person });

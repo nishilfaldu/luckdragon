@@ -5,7 +5,7 @@ import type { IngestRun, SourceRow } from "@/components/shell/model";
 
 /** Pipeline steps grouped into phases a person watching can follow. */
 const PHASES: { title: string; sources: string[] }[] = [
-  { title: "Finding their accounts", sources: ["seed", "luma", "resolve"] },
+  { title: "Finding their accounts", sources: ["queue", "seed", "luma", "resolve"] },
   {
     title: "Reading the web",
     sources: ["linkedin", "x", "youtube", "serp", "website", "github", "research", "instagram", "threads", "bluesky", "reddit", "crunchbase", "packages"],
@@ -14,7 +14,7 @@ const PHASES: { title: string; sources: string[] }[] = [
 ];
 
 const NAMES: Record<string, string> = {
-  seed: "People list", luma: "Luma profile", resolve: "Finding their accounts", website: "Personal website", github: "GitHub",
+  queue: "Queued", seed: "People list", luma: "Luma profile", resolve: "Finding their accounts", website: "Personal website", github: "GitHub",
   linkedin: "LinkedIn", x: "X", youtube: "YouTube", instagram: "Instagram", threads: "Threads", bluesky: "Bluesky",
   reddit: "Reddit", crunchbase: "Crunchbase", packages: "npm and PyPI", serp: "Google search", research: "Research agent",
   graph: "Saving to FalkorDB", room: "Linking into the room graph",
@@ -50,7 +50,8 @@ export function IngestActivity({ name, run }: { name: string; run: IngestRun }) 
   const rows = run.sources;
   const real = rows.filter((row) => PHASES[1].sources.includes(row.source));
   const tried = real.filter((row) => row.status !== "skipped");
-  const settled = tried.filter((row) => !BUSY.has(row.status));
+  // A source counts as done once its fetch finishes; extraction afterwards must not move the counter backwards.
+  const settled = tried.filter((row) => row.status !== "pending" && row.status !== "fetching");
   const fetched = real.reduce((sum, row) => sum + (row.fetched ?? 0), 0);
   const facts = real.reduce((sum, row) => sum + (row.facts ?? 0), 0);
   const skipped = real.filter((row) => row.status === "skipped").map((row) => NAMES[row.source] ?? row.source);
@@ -80,7 +81,14 @@ export function IngestActivity({ name, run }: { name: string; run: IngestRun }) 
       </div>
 
       {PHASES.map((phase) => {
-        const list = rows.filter((row) => phase.sources.includes(row.source) && row.status !== "skipped" && row.source !== "seed");
+        const started = rows.some((row) => row.source !== "queue");
+        const list = rows.filter(
+          (row) =>
+            phase.sources.includes(row.source) &&
+            row.status !== "skipped" &&
+            row.source !== "seed" &&
+            !(row.source === "queue" && started),
+        );
         if (!list.length) return null;
         return (
           <div key={phase.title} style={{ marginTop: 16 }}>
