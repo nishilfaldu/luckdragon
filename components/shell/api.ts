@@ -56,16 +56,30 @@ export async function fetchGraph(slug: string): Promise<GraphPayload> {
 }
 
 export async function streamIngest(slug: string, onEvent: (event: IngestEvent) => void): Promise<void> {
-  const response = await fetch(`/api/ingest/${encodeURIComponent(slug)}`, {
-    method: "POST",
-    headers: { Accept: "text/event-stream" },
-  });
-  if (response.status === 404) throw new ApiError(404, "Ingest isn't ready yet.");
-  if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response, "Ingest didn't start."));
-  await readSse(response, (value) => {
-    const event = normalizeIngestEvent(value);
-    if (event) onEvent(event);
-  });
+  // The public deploy streams a queued job in ~4.5 minute windows; reconnect until the run ends.
+  let seen = 0;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await fetch(`/api/ingest/${encodeURIComponent(slug)}?after=${seen}`, {
+      method: "POST",
+      headers: { Accept: "text/event-stream" },
+    });
+    if (response.status === 404) throw new ApiError(404, "Ingest isn't ready yet.");
+    if (!response.ok) throw new ApiError(response.status, await readErrorMessage(response, "Ingest didn't start."));
+    let ended = false;
+    let reconnect = false;
+    await readSse(response, (value) => {
+      const event = normalizeIngestEvent(value);
+      if (!event) return;
+      if (event.source === "stream") {
+        reconnect = true;
+        return;
+      }
+      if (event.source !== "queue") seen += 1;
+      if (event.source === "all" && (event.status === "done" || event.status === "error")) ended = true;
+      onEvent(event);
+    });
+    if (ended || !reconnect) return;
+  }
 }
 
 export async function streamChat(
