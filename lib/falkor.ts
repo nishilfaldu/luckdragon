@@ -49,10 +49,21 @@ export function graphName(slug: string): string {
 export function getFalkor(): Promise<FalkorDB> {
   if (!globalForFalkor.__luckdragonFalkor) {
     const url = process.env.FALKORDB_URL || DEFAULT_URL;
-    globalForFalkor.__luckdragonFalkor = FalkorDB.connect({ url }).catch((error: unknown) => {
-      globalForFalkor.__luckdragonFalkor = undefined;
-      throw error;
-    });
+    const client: Promise<FalkorDB> = FalkorDB.connect({ url })
+      .then((db) => {
+        // FalkorDB Cloud drops idle connections; without a listener the 'error' event crashes the process.
+        // Forget the client so the next query reconnects.
+        db.on("error", (error: unknown) => {
+          console.warn("falkordb connection error:", error instanceof Error ? error.message : error);
+          if (globalForFalkor.__luckdragonFalkor === client) globalForFalkor.__luckdragonFalkor = undefined;
+        });
+        return db;
+      })
+      .catch((error: unknown) => {
+        globalForFalkor.__luckdragonFalkor = undefined;
+        throw error;
+      });
+    globalForFalkor.__luckdragonFalkor = client;
   }
   return globalForFalkor.__luckdragonFalkor;
 }

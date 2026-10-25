@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "copy:cloud": "tsx scripts/copy-to-cloud.ts",
     "room:build": "tsx scripts/build-room.ts",
-    "worker": "tsx scripts/worker.ts"
+    "worker": "until tsx scripts/worker.ts; do echo 'worker exited, restarting'; sleep 2; done"
   },
   "dependencies": {
     "@openai/agents": "^0.21.0",
