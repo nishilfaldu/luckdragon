@@ -50,7 +50,8 @@ export function IngestActivity({ name, run }: { name: string; run: IngestRun }) 
   const rows = run.sources;
   const real = rows.filter((row) => PHASES[1].sources.includes(row.source));
   const tried = real.filter((row) => row.status !== "skipped");
-  const settled = tried.filter((row) => !BUSY.has(row.status));
+  // A source counts as done once its fetch finishes; extraction afterwards must not move the counter backwards.
+  const settled = tried.filter((row) => row.status !== "pending" && row.status !== "fetching");
   const fetched = real.reduce((sum, row) => sum + (row.fetched ?? 0), 0);
   const facts = real.reduce((sum, row) => sum + (row.facts ?? 0), 0);
   const skipped = real.filter((row) => row.status === "skipped").map((row) => NAMES[row.source] ?? row.source);
